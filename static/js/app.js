@@ -16,6 +16,11 @@ const toggleCurlBtn = $("toggleCurlBtn");
 const curlPanel = $("curlPanel");
 const curlCode = $("curlCode");
 const copyCurlBtn = $("copyCurlBtn");
+const mobileFocusBar = $("mobileFocusBar");
+const mobileFocusLabel = $("mobileFocusLabel");
+const backToResultsBtn = $("backToResultsBtn");
+
+const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
 
 const COMPACT_TABLE_THRESHOLD = 8;
 const MAX_VARIANTS_PREVIEW = 100;
@@ -59,6 +64,54 @@ function esc(text) {
 
 function getMakt(item) {
   return String(item?.['מק"ט'] ?? item?.מקט ?? "").trim();
+}
+
+function isMobileView() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function normalizePhone(raw) {
+  const text = String(raw ?? "").trim();
+  if (!text || text === "—" || text === "לא מוגדר") return null;
+  const digits = text.replace(/[^\d+]/g, "");
+  return digits.length >= 7 ? digits : null;
+}
+
+function phoneLinkHtml(value) {
+  const tel = normalizePhone(value);
+  const label = String(value ?? "").trim();
+  if (!tel) return esc(label || "—");
+  return `<a href="tel:${tel}" class="tel-link">${esc(label)}</a>`;
+}
+
+function supplierPhoneCell(s) {
+  for (const key of SUPPLIER_PHONE_KEYS) {
+    const val = s[key];
+    const tel = normalizePhone(val);
+    if (tel) return phoneLinkHtml(val);
+  }
+  return "—";
+}
+
+function formatDetailValue(key, value) {
+  if (/טלפון|נייד|נייח/i.test(key)) return phoneLinkHtml(value);
+  return esc(value);
+}
+
+function enterMobileFocus(label) {
+  if (!isMobileView()) return;
+  document.querySelector(".app")?.classList.add("mobile-focus");
+  if (mobileFocusBar) mobileFocusBar.hidden = false;
+  if (mobileFocusLabel) mobileFocusLabel.textContent = label;
+  requestAnimationFrame(() => {
+    $("detailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function exitMobileFocus() {
+  document.querySelector(".app")?.classList.remove("mobile-focus");
+  $("variantsDrawer")?.classList.remove("collapsed-mobile");
+  if (mobileFocusBar) mobileFocusBar.hidden = true;
 }
 
 function cellVal(item, key) {
@@ -265,6 +318,7 @@ async function selectGroupFromTable(groupIdx, rowEl) {
     renderVariantsInDrawer(group, makt, groupIdx);
     renderMaktSummary(makt, count);
     await loadSuppliers(makt, count);
+    enterMobileFocus(`מק״ט ${makt} · בחר וריאנט`);
     return;
   }
 
@@ -360,7 +414,7 @@ function renderDetail(item) {
       ([k, v]) => `
       <div class="detail-row">
         <dt>${esc(k)}</dt>
-        <dd>${esc(v)}</dd>
+        <dd>${formatDetailValue(k, v)}</dd>
       </div>`
     )
     .join("");
@@ -387,7 +441,7 @@ function renderSuppliers(makt, suppliers, variantCount) {
 
   if (!suppliers.length) {
     suppliersBody.innerHTML =
-      '<tr class="empty-row"><td colspan="4">לא נמצאו ספקים מקושרים למק״ט זה</td></tr>';
+      '<tr class="empty-row"><td colspan="5">לא נמצאו ספקים מקושרים למק״ט זה</td></tr>';
     return;
   }
 
@@ -397,6 +451,7 @@ function renderSuppliers(makt, suppliers, variantCount) {
     <tr>
       <td data-label="שם ספק">${esc(s["שם ספק"])}</td>
       <td data-label="יישוב">${esc(s["יישוב קליניקה"])}</td>
+      <td data-label="טלפון">${supplierPhoneCell(s)}</td>
       <td data-label="אזור">${esc(s["אזור"])}</td>
       <td data-label="בתוקף">${esc(s["האם בתוקף"])}</td>
     </tr>`
@@ -410,7 +465,7 @@ async function loadSuppliers(makt, variantCount = 1) {
     return;
   }
   suppliersBody.innerHTML =
-    '<tr class="loading-row"><td colspan="4">טוען ספקים...</td></tr>';
+    '<tr class="loading-row"><td colspan="5">טוען ספקים...</td></tr>';
   try {
     const data = await api(`/api/makt/${encodeURIComponent(makt)}/suppliers`);
     renderSuppliers(makt, data.suppliers || [], variantCount);
@@ -425,6 +480,9 @@ async function selectVariantData(item, makt, variantCount) {
 
   renderMaktSummary(makt, variantCount);
   await loadSuppliers(makt, variantCount);
+  const drawer = $("variantsDrawer");
+  if (drawer) drawer.classList.add("collapsed-mobile");
+  enterMobileFocus(`מק״ט ${makt}`);
 
   detailContent.innerHTML = '<p class="detail-empty">טוען...</p>';
   try {
@@ -444,6 +502,7 @@ async function doSearch() {
 
   lastSearch = { q, match: matchSelect.value, field: fieldSelect.value };
   updateCurl();
+  exitMobileFocus();
 
   searchBtn.disabled = true;
   resultsContainer.innerHTML = '<p class="empty-state">מחפש...</p>';
@@ -523,5 +582,11 @@ searchInput.addEventListener("keydown", (e) => {
 });
 
 bindDrawerControls();
+
+backToResultsBtn?.addEventListener("click", () => {
+  exitMobileFocus();
+  resultsContainer?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 checkHealth();
 updateCurl();

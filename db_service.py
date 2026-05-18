@@ -243,6 +243,9 @@ def get_suppliers_for_makt(
         ]
         if "אזור" in supplier_cols:
             select_parts.append("s.[אזור]")
+        for phone_col in ("נייד ספק", "טלפון עבודה ספק", "נייח ספק"):
+            if phone_col in supplier_cols:
+                select_parts.append(f"s.[{phone_col}]")
         if "מחיר הסכם" in agreement_cols:
             select_parts.append("a.[מחיר הסכם]")
         if "האם בתוקף" in agreement_cols:

@@ -980,6 +980,77 @@ body {
   .curl-code {
     font-size: 0.7rem;
   }
+
+  /* מצב מיקוד אחרי בחירת מק״ט/וריאנט */
+  .app.mobile-focus .search-card {
+    display: none;
+  }
+
+  .app.mobile-focus .results-scroll {
+    display: none;
+  }
+
+  .app.mobile-focus .panel-header {
+    margin-bottom: 0;
+  }
+
+  .mobile-focus-bar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.5rem;
+    background: var(--primary-soft);
+    border: 1px solid #99f6e4;
+    border-radius: 8px;
+  }
+
+  .app.mobile-focus .mobile-focus-bar {
+    display: flex;
+  }
+
+  #mobileFocusLabel {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-hover);
+  }
+
+  .app.mobile-focus .variants-drawer.collapsed-mobile .variants-drawer-body {
+    display: none;
+  }
+
+  .app.mobile-focus .variants-drawer.collapsed-mobile .variants-drawer-header h3::after {
+    content: " · נבחר וריאנט";
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+
+  .app.mobile-focus .layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app.mobile-focus .side {
+    order: 1;
+  }
+
+  .app.mobile-focus .results-panel {
+    order: 2;
+  }
+}
+
+.tel-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  direction: ltr;
+  unicode-bidi: embed;
+  display: inline-block;
+}
+
+.tel-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 480px) {

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.4.3" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.4.4" />
 </head>
 <body>
   <div class="app">
@@ -71,6 +71,10 @@
           <h2>תוצאות</h2>
           <span id="resultsCount" class="count-pill">0</span>
         </div>
+        <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
+          <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
+          <span id="mobileFocusLabel"></span>
+        </div>
         <div id="resultsContainer" class="results-scroll">
           <p class="empty-state">בצע חיפוש להצגת תוצאות</p>
         </div>
@@ -101,12 +105,13 @@
                 <tr>
                   <th>שם ספק</th>
                   <th>יישוב</th>
+                  <th>טלפון</th>
                   <th>אזור</th>
                   <th>בתוקף</th>
                 </tr>
               </thead>
               <tbody id="suppliersBody">
-                <tr class="empty-row"><td colspan="4">בחר מק״ט אב להצגת ספקים</td></tr>
+                <tr class="empty-row"><td colspan="5">בחר מק״ט אב להצגת ספקים</td></tr>
               </tbody>
             </table>
           </div>
@@ -116,6 +121,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.4.3"></script>
+  <script src="/static/js/app.js?v=0.4.4"></script>
 </body>
 </html>
