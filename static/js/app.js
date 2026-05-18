@@ -21,6 +21,10 @@ const mobileFocusLabel = $("mobileFocusLabel");
 const backToResultsBtn = $("backToResultsBtn");
 const exportSearchBtn = $("exportSearchBtn");
 const exportMaktBtn = $("exportMaktBtn");
+const aiQueryInput = $("aiQueryInput");
+const aiSearchBtn = $("aiSearchBtn");
+const aiResultsContainer = $("aiResultsContainer");
+const aiStatusBadge = $("aiStatusBadge");
 
 const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
 const EXPORT_SEARCH_LIMIT = 500;
@@ -45,6 +49,19 @@ const VARIANT_KEYS = [
 
 async function api(path) {
   const res = await fetch(path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "שגיאה בשרת");
+  }
+  return res.json();
+}
+
+async function apiPost(path, body) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "שגיאה בשרת");
@@ -443,9 +460,135 @@ async function checkHealth() {
     const ok = Boolean(h.database_exists);
     statusBadge.textContent = ok ? `מחובר · v${h.version}` : "אין בסיס נתונים";
     statusBadge.className = ok ? "badge badge--ok" : "badge badge--err";
+    await updateAiStatus();
   } catch {
     statusBadge.textContent = "שרת לא זמין";
     statusBadge.className = "badge badge--err";
+    if (aiStatusBadge) {
+      aiStatusBadge.textContent = "לא זמין";
+      aiStatusBadge.className = "badge badge--err";
+    }
+  }
+}
+
+async function updateAiStatus() {
+  if (!aiStatusBadge) return;
+  try {
+    const st = await api("/api/ai/status");
+    aiStatusBadge.textContent = st.openai_configured ? "AI מלא" : "חיפוש חכם";
+    aiStatusBadge.className = st.openai_configured ? "badge badge--ok" : "badge";
+    aiStatusBadge.title = st.hint || "";
+  } catch {
+    aiStatusBadge.textContent = "—";
+    aiStatusBadge.className = "badge";
+  }
+}
+
+function renderAiSupplierRows(suppliers, userLocation) {
+  if (!suppliers?.length) {
+    return '<tr><td colspan="6">אין ספקים מורשים למק״ט זה</td></tr>';
+  }
+  return suppliers
+    .map((s) => {
+      const nearest = Boolean(s.is_nearest);
+      const rowCls = nearest ? "supplier-row supplier-row--nearest" : "supplier-row";
+      const badge = nearest
+        ? '<span class="nearest-badge">הכי קרוב</span>'
+        : s.proximity_label
+          ? `<span class="proximity-tag">${esc(s.proximity_label)}</span>`
+          : "";
+      return `
+      <tr class="${rowCls}">
+        <td>${esc(s["שם ספק"])}${badge}</td>
+        <td>${esc(s["יישוב קליניקה"])}</td>
+        <td>${supplierPhoneCell(s)}</td>
+        <td>${esc(s["אזור"])}</td>
+        <td>${esc(s["האם בתוקף"])}</td>
+        <td>${esc(s["מחיר הסכם"])}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function renderAiResults(data) {
+  if (!aiResultsContainer) return;
+  aiResultsContainer.hidden = false;
+
+  const parsed = data.parsed || {};
+  const loc = data.user_location || parsed.location_normalized || parsed.location;
+  let parsedHtml = `<strong>ניתוח:</strong> ${esc(parsed.explanation || "—")}`;
+  if (loc) parsedHtml += ` · <strong>מיקום:</strong> ${esc(loc)}`;
+  if (parsed.product_terms?.length) {
+    parsedHtml += ` · <strong>מילות חיפוש:</strong> ${esc(parsed.product_terms.join(", "))}`;
+  }
+
+  if (!data.results?.length) {
+    aiResultsContainer.innerHTML = `
+      <p class="ai-parsed">${parsedHtml}</p>
+      <p class="empty-state">${esc(data.message || "לא נמצאו תוצאות")}</p>`;
+    return;
+  }
+
+  const cards = data.results
+    .map((r) => {
+      const makt = r['מק"ט'];
+      const note = r.supplier_note
+        ? `<p class="hint-inline">${esc(r.supplier_note)}</p>`
+        : "";
+      return `
+      <article class="ai-makt-card">
+        <h3>מק״ט <span class="makt-badge makt-badge--sm">${esc(makt)}</span></h3>
+        <p class="ai-makt-meta">${esc(r["תיאור פריט"])} · ${r.variant_count || 0} וריאנטים · ${r.supplier_count || 0} ספקים</p>
+        ${note}
+        <div class="ai-suppliers-wrap table-wrap">
+          <table class="data-table ai-suppliers-table">
+            <thead>
+              <tr>
+                <th>שם ספק</th>
+                <th>יישוב</th>
+                <th>טלפון</th>
+                <th>אזור</th>
+                <th>בתוקף</th>
+                <th>מחיר</th>
+              </tr>
+            </thead>
+            <tbody>${renderAiSupplierRows(r.suppliers, loc)}</tbody>
+          </table>
+        </div>
+      </article>`;
+    })
+    .join("");
+
+  aiResultsContainer.innerHTML = `
+    <p class="ai-parsed">${parsedHtml}</p>
+    <p class="results-mode-hint">נמצאו ${data.count} מק״טים · ספק מסומן כהכי קרוב${loc ? ` ל־${esc(loc)}` : ""}</p>
+    ${cards}`;
+  aiResultsContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function doAiSearch() {
+  const query = aiQueryInput?.value?.trim();
+  if (!query || query.length < 3) {
+    showToast("הזן תיאור חיפוש (לפחות 3 תווים)", true);
+    return;
+  }
+  if (aiSearchBtn) aiSearchBtn.disabled = true;
+  if (aiResultsContainer) {
+    aiResultsContainer.hidden = false;
+    aiResultsContainer.innerHTML = '<p class="empty-state">מנתח ומחפש...</p>';
+  }
+  try {
+    const data = await apiPost("/api/ai/search", { query });
+    renderAiResults(data);
+    if (data.message && !data.count) showToast(data.message, true);
+    else showToast(`נמצאו ${data.count} מק״טים`);
+  } catch (e) {
+    if (aiResultsContainer) {
+      aiResultsContainer.innerHTML = `<p class="empty-state">${esc(e.message)}</p>`;
+    }
+    showToast(e.message, true);
+  } finally {
+    if (aiSearchBtn) aiSearchBtn.disabled = false;
   }
 }
 
@@ -856,6 +999,11 @@ backToResultsBtn?.addEventListener("click", () => {
 
 exportSearchBtn?.addEventListener("click", exportSearchResults);
 exportMaktBtn?.addEventListener("click", exportMaktSuppliers);
+
+aiSearchBtn?.addEventListener("click", doAiSearch);
+aiQueryInput?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) doAiSearch();
+});
 
 checkHealth();
 updateExportButtons();

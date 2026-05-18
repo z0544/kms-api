@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
 from config import DB_PATH
@@ -21,9 +22,10 @@ from db_service import (
     parse_match_mode,
     search_items,
 )
+from ai_search import run_ai_search
 from excel_export import build_makt_export, build_search_export
 
-API_VERSION = "0.5.0"
+API_VERSION = "0.6.0"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -55,12 +57,44 @@ def gui_home() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    import os
+
     return {
         "status": "ok",
         "version": API_VERSION,
         "database": str(DB_PATH),
         "database_exists": bool(DB_PATH.exists()),
+        "ai_openai_configured": bool(os.getenv("OPENAI_API_KEY", "").strip()),
     }
+
+
+class AiSearchRequest(BaseModel):
+    query: str = Field(..., min_length=3, max_length=500)
+
+
+@app.get("/api/ai/status")
+def api_ai_status() -> dict[str, Any]:
+    import os
+
+    key_set = bool(os.getenv("OPENAI_API_KEY", "").strip())
+    return {
+        "openai_configured": key_set,
+        "parser": "openai" if key_set else "heuristic",
+        "hint": (
+            "מנוע AI מלא (OpenAI) פעיל"
+            if key_set
+            else "מנוע חיפוש חכם מקומי — להפעלת OpenAI הגדר OPENAI_API_KEY"
+        ),
+    }
+
+
+@app.post("/api/ai/search")
+def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
+    _ensure_db()
+    try:
+        return run_ai_search(body.query.strip())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api/items")

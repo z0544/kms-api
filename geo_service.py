@@ -1,0 +1,226 @@
+"""מיפוי יישובים, מחוזות ודירוג קרבה גיאוגרפית לספקים."""
+
+from __future__ import annotations
+
+import csv
+import re
+import unicodedata
+from difflib import get_close_matches
+from functools import lru_cache
+from typing import Any
+
+from config import GEO_MAPPING_PATH
+
+# יישובים עיקריים (מחוז) — משלים את geo_mapping.csv
+_BUILTIN_SETTLEMENTS: dict[str, str] = {
+    "תל אביב - יפו": "מחוז תל אביב",
+    "תל אביב": "מחוז תל אביב",
+    "ירושלים": "מחוז ירושלים",
+    "חיפה": "מחוז חיפה",
+    "באר שבע": "מחוז הדרום",
+    "שדרות": "מחוז הדרום",
+    "אשקלון": "מחוז הדרום",
+    "נתיבות": "מחוז הדרום",
+    "אופקים": "מחוז הדרום",
+    "קריית גת": "מחוז הדרום",
+    "קרית גת": "מחוז הדרום",
+    "דימונה": "מחוז הדרום",
+    "ערד": "מחוז הדרום",
+    "אילת": "מחוז הדרום",
+    "פתח תקווה": "מחוז המרכז",
+    "ראשון לציון": "מחוז המרכז",
+    "רחובות": "מחוז המרכז",
+    "נתניה": "מחוז המרכז",
+    "הרצליה": "מחוז המרכז",
+    "חולון": "מחוז המרכז",
+    "בת ים": "מחוז המרכז",
+    "רמת גן": "מחוז המרכז",
+    "כפר סבא": "מחוז המרכז",
+    "רעננה": "מחוז המרכז",
+    "מודיעין": "מחוז המרכז",
+    "לוד": "מחוז המרכז",
+    "רמלה": "מחוז המרכז",
+    "בני ברק": "מחוז המרכז",
+    "חדרה": "מחוז חיפה",
+    "קריית אתא": "מחוז חיפה",
+    "נצרת": "מחוז הצפון",
+    "טבריה": "מחוז הצפון",
+    "צפת": "מחוז הצפון",
+    "עפולה": "מחוז הצפון",
+    "נהריה": "מחוז הצפון",
+    "כרמיאל": "מחוז הצפון",
+    "בית שמש": "מחוז ירושלים",
+    "מעלה אדומים": "מחוז ירושלים",
+}
+
+CITY_ALIASES: dict[str, str] = {
+    "ספרסופה": "שדרות",
+    "סדרות": "שדרות",
+    "שדרות": "שדרות",
+    "תל אביב יפו": "תל אביב - יפו",
+    "ת\"א": "תל אביב - יפו",
+    "באר-שבע": "באר שבע",
+    "באר שבע": "באר שבע",
+    "פתח תקוה": "פתח תקווה",
+    "קרית גת": "קריית גת",
+}
+
+# סדר עדיפות יישובים באותו מחוז (אינדקס נמוך = קרוב יותר לעוגן)
+_DISTRICT_NEARBY: dict[str, list[str]] = {
+    "מחוז הדרום": [
+        "שדרות",
+        "אשקלון",
+        "נתיבות",
+        "אופקים",
+        "קריית גת",
+        "באר שבע",
+        "דימונה",
+        "ערד",
+        "אילת",
+    ],
+    "מחוז המרכז": [
+        "רחובות",
+        "לוד",
+        "רמלה",
+        "פתח תקווה",
+        "ראשון לציון",
+        "חולון",
+        "בת ים",
+        "תל אביב - יפו",
+        "רמת גן",
+        "הרצליה",
+        "נתניה",
+        "כפר סבא",
+        "רעננה",
+    ],
+    "מחוז תל אביב": [
+        "תל אביב - יפו",
+        "רמת גן",
+        "חולון",
+        "בת ים",
+        "הרצליה",
+    ],
+    "מחוז ירושלים": ["ירושלים", "בית שמש", "מעלה אדומים"],
+    "מחוז חיפה": ["חיפה", "חדרה", "קריית אתא"],
+    "מחוז הצפון": ["נהריה", "עפולה", "טבריה", "נצרת", "צפת", "כרמיאל"],
+}
+
+
+def _normalize_text(text: str) -> str:
+    t = unicodedata.normalize("NFKC", str(text or "").strip().lower())
+    t = re.sub(r"\s+", " ", t)
+    return t
+
+
+def normalize_city(name: str | None) -> str:
+    if not name:
+        return ""
+    raw = str(name).strip()
+    if not raw:
+        return ""
+    key = _normalize_text(raw)
+    for alias, canonical in CITY_ALIASES.items():
+        if _normalize_text(alias) == key:
+            return canonical
+    if raw in _BUILTIN_SETTLEMENTS:
+        return raw
+    match = get_close_matches(raw, list(_BUILTIN_SETTLEMENTS.keys()), n=1, cutoff=0.82)
+    if match:
+        return match[0]
+    return raw
+
+
+@lru_cache(maxsize=1)
+def load_settlement_district_map() -> dict[str, str]:
+    mapping = dict(_BUILTIN_SETTLEMENTS)
+    if GEO_MAPPING_PATH.exists():
+        with GEO_MAPPING_PATH.open(encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                city = (row.get("יישוב") or row.get("יישוב קליניקה") or "").strip()
+                district = (row.get("מחוז") or row.get("אזור") or "").strip()
+                if city and district:
+                    mapping[city] = district
+    return mapping
+
+
+def get_district(city: str | None) -> str | None:
+    if not city:
+        return None
+    norm = normalize_city(city)
+    return load_settlement_district_map().get(norm)
+
+
+def _nearby_rank(district: str | None, settlement: str) -> int:
+    if not district:
+        return 999
+    nearby = _DISTRICT_NEARBY.get(district, [])
+    norm = normalize_city(settlement)
+    try:
+        return nearby.index(norm)
+    except ValueError:
+        return 500
+
+
+def proximity_score(
+    user_city: str | None,
+    supplier: dict[str, Any],
+) -> tuple[int, str]:
+    """ציון גבוה יותר = ספק קרוב יותר למשתמש."""
+    if not user_city:
+        return 0, ""
+
+    user_norm = normalize_city(user_city)
+    sup_city = normalize_city(supplier.get("יישוב קליניקה"))
+    user_district = get_district(user_norm)
+    sup_district = supplier.get("אזור") or get_district(sup_city)
+
+    if user_norm and sup_city and user_norm == sup_city:
+        return 1000, "אותו יישוב"
+
+    if user_district and sup_district and user_district == sup_district:
+        user_rank = _nearby_rank(user_district, user_norm)
+        sup_rank = _nearby_rank(user_district, sup_city)
+        dist = abs(sup_rank - user_rank)
+        if dist <= 1:
+            return 850, "קרוב מאוד (אותו מחוז)"
+        if dist <= 3:
+            return 750, "קרוב (אותו מחוז)"
+        return 650, "אותו מחוז"
+
+    if user_district and sup_district:
+        return 200, "מחוז אחר"
+
+    if sup_city and get_close_matches(user_norm, [sup_city], n=1, cutoff=0.9):
+        return 900, "יישוב דומה"
+
+    return 100, ""
+
+
+def rank_suppliers(
+    user_city: str | None,
+    suppliers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    enriched: list[dict[str, Any]] = []
+    for s in suppliers:
+        score, label = proximity_score(user_city, s)
+        row = dict(s)
+        row["proximity_score"] = score
+        row["proximity_label"] = label
+        enriched.append(row)
+    enriched.sort(
+        key=lambda x: (
+            -int(x.get("proximity_score") or 0),
+            str(x.get("שם ספק") or ""),
+        ),
+    )
+    if enriched and user_city:
+        best = enriched[0].get("proximity_score", 0)
+        for row in enriched:
+            row["is_nearest"] = row.get("proximity_score") == best and best > 0
+    else:
+        for row in enriched:
+            row["is_nearest"] = False
+    if enriched and not any(r.get("is_nearest") for r in enriched):
+        enriched[0]["is_nearest"] = True
+    return enriched

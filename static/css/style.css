@@ -1142,6 +1142,130 @@ body {
   text-decoration: underline;
 }
 
+/* חיפוש AI */
+.ai-search-card {
+  margin-bottom: 1.25rem;
+  border: 1px solid #99f6e4;
+  background: linear-gradient(180deg, #f0fdfa 0%, var(--surface) 40%);
+}
+
+.ai-search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ai-search-header h2 {
+  font-size: 1.1rem;
+  color: var(--primary-hover);
+}
+
+.ai-hint {
+  margin-bottom: 0.65rem;
+}
+
+.ai-query-input {
+  width: 100%;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  min-height: 4.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ai-query-input:focus {
+  outline: 2px solid var(--primary-soft);
+  border-color: var(--primary);
+}
+
+.ai-search-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.ai-results {
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.ai-parsed {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.ai-makt-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #fff;
+}
+
+.ai-makt-card h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.ai-makt-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.ai-suppliers-wrap {
+  overflow-x: auto;
+}
+
+.ai-suppliers-table {
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.ai-suppliers-table th,
+.ai-suppliers-table td {
+  padding: 0.35rem 0.45rem;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.supplier-row--nearest {
+  background: #ecfdf5;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.supplier-row--nearest td {
+  font-weight: 600;
+}
+
+.nearest-badge {
+  display: inline-block;
+  margin-inline-start: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.proximity-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 @media (max-width: 480px) {
   .brand-icon {
     width: 38px;
