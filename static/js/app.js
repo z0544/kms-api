@@ -81,20 +81,20 @@ function renderVariantsTable(variants, groupIdx, makt) {
     .map(
       (v, i) => `
     <tr class="variant-table-row" data-group-idx="${groupIdx}" data-variant-idx="${i}" tabindex="0">
-      <td class="num-cell">${i + 1}</td>
-      <td>${cellVal(v, "רמת בסיס")}</td>
-      <td>${cellVal(v, "רמת חריגה")}</td>
-      <td>${cellVal(v, "אחוז לחריגה")}</td>
-      <td>${cellVal(v, "סוג זכאי")}</td>
-      <td>${cellVal(v, "סוג סכום")}</td>
-      <td class="num-cell"><strong>${cellVal(v, "סכום")}</strong></td>
+      <td class="num-cell" data-label="#">${i + 1}</td>
+      <td data-label="רמת בסיס">${cellVal(v, "רמת בסיס")}</td>
+      <td data-label="רמת חריגה">${cellVal(v, "רמת חריגה")}</td>
+      <td data-label="אחוז">${cellVal(v, "אחוז לחריגה")}</td>
+      <td data-label="סוג זכאי">${cellVal(v, "סוג זכאי")}</td>
+      <td data-label="סוג סכום">${cellVal(v, "סוג סכום")}</td>
+      <td class="num-cell" data-label="סכום"><strong>${cellVal(v, "סכום")}</strong></td>
     </tr>`
     )
     .join("");
 
   return `
     <div class="table-wrap variants-table-wrap">
-      <table class="data-table variants-table">
+      <table class="data-table variants-table table--cards-mobile">
         <thead>
           <tr>
             <th>#</th>
@@ -169,11 +169,11 @@ function renderCompactTable(groups) {
       const zacai = variants[0]?.["סוג זכאי"] || "—";
       return `
         <tr class="summary-row" data-group-idx="${idx}" tabindex="0">
-          <td><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
-          <td class="desc-cell">${esc(desc)}</td>
-          <td>${esc(zacai)}</td>
-          <td class="num-cell">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
-          <td class="num-cell">${esc(amountRange(variants))}</td>
+          <td data-label="מק״ט"><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
+          <td class="desc-cell" data-label="תיאור">${esc(desc)}</td>
+          <td data-label="סוג זכאי">${esc(zacai)}</td>
+          <td class="num-cell" data-label="וריאנטים">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
+          <td class="num-cell" data-label="טווח סכום">${esc(amountRange(variants))}</td>
         </tr>`;
     })
     .join("");
@@ -181,7 +181,7 @@ function renderCompactTable(groups) {
   resultsContainer.innerHTML = `
     <p class="results-mode-hint">נמצאו ${groups.length} מק״טים – לחץ על שורה לצפייה בוריאנטים וספקים</p>
     <div class="table-wrap summary-table-wrap">
-      <table class="data-table summary-table">
+      <table class="data-table summary-table table--cards-mobile">
         <thead>
           <tr>
             <th>מק״ט</th>
@@ -395,10 +395,10 @@ function renderSuppliers(makt, suppliers, variantCount) {
     .map(
       (s) => `
     <tr>
-      <td>${esc(s["שם ספק"])}</td>
-      <td>${esc(s["יישוב קליניקה"])}</td>
-      <td>${esc(s["אזור"])}</td>
-      <td>${esc(s["האם בתוקף"])}</td>
+      <td data-label="שם ספק">${esc(s["שם ספק"])}</td>
+      <td data-label="יישוב">${esc(s["יישוב קליניקה"])}</td>
+      <td data-label="אזור">${esc(s["אזור"])}</td>
+      <td data-label="בתוקף">${esc(s["האם בתוקף"])}</td>
     </tr>`
     )
     .join("");
