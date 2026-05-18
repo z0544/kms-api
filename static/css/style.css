@@ -645,10 +645,42 @@ body {
 }
 
 .summary-table .desc-cell {
+  position: relative;
   max-width: 220px;
-  white-space: nowrap;
+}
+
+.desc-tip {
+  display: block;
+  position: relative;
+  cursor: help;
+  outline: none;
+}
+
+.desc-tip-text {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-title .desc-tip {
+  min-width: 0;
+  flex: 1;
+}
+
+.desc-float-tip {
+  position: fixed;
+  z-index: 2000;
+  max-width: min(28rem, calc(100vw - 16px));
+  padding: 0.55rem 0.7rem;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.45;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+  pointer-events: none;
 }
 
 .summary-table .num-cell {
@@ -951,6 +983,12 @@ body {
     white-space: normal;
     text-align: left;
     line-height: 1.4;
+  }
+
+  .desc-tip-text {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
   }
 
   .summary-table .desc-cell {

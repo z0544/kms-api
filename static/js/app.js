@@ -70,18 +70,107 @@ function isMobileView() {
   return window.matchMedia("(max-width: 768px)").matches;
 }
 
-function normalizePhone(raw) {
+/** מספר ישראלי לחיוג + תצוגה (מוסיף 0 בתחילה אם חסר, למשל 3-9233345 → 03-9233345) */
+function formatIsraeliPhone(raw) {
   const text = String(raw ?? "").trim();
   if (!text || text === "—" || text === "לא מוגדר") return null;
-  const digits = text.replace(/[^\d+]/g, "");
-  return digits.length >= 7 ? digits : null;
+
+  let digits = text.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("972")) digits = "0" + digits.slice(3);
+
+  let display = text;
+
+  if (!digits.startsWith("0") && digits.length >= 7) {
+    const area = digits[0];
+    const isMobile = digits.length === 9 && area === "5";
+    const isLandline =
+      digits.length >= 8 && digits.length <= 9 && "23489".includes(area);
+    if (isMobile || isLandline) {
+      digits = "0" + digits;
+      if (!/^0/.test(text)) {
+        display = text.replace(/^(\D*)(\d)/, "$10$2");
+      }
+    }
+  }
+
+  if (digits.length < 7) return null;
+  return { tel: digits, display };
+}
+
+function normalizePhone(raw) {
+  const f = formatIsraeliPhone(raw);
+  return f ? f.tel : null;
 }
 
 function phoneLinkHtml(value) {
-  const tel = normalizePhone(value);
-  const label = String(value ?? "").trim();
-  if (!tel) return esc(label || "—");
-  return `<a href="tel:${tel}" class="tel-link">${esc(label)}</a>`;
+  const f = formatIsraeliPhone(value);
+  if (!f) {
+    const label = String(value ?? "").trim();
+    return esc(label || "—");
+  }
+  return `<a href="tel:${f.tel}" class="tel-link">${esc(f.display)}</a>`;
+}
+
+let floatingDescTip = null;
+
+function ensureFloatingDescTip() {
+  if (!floatingDescTip) {
+    floatingDescTip = document.createElement("div");
+    floatingDescTip.className = "desc-float-tip";
+    floatingDescTip.hidden = true;
+    document.body.appendChild(floatingDescTip);
+  }
+  return floatingDescTip;
+}
+
+function hideDescFloatTip() {
+  if (floatingDescTip) floatingDescTip.hidden = true;
+}
+
+function showDescFloatTip(e) {
+  const el = e.currentTarget;
+  const textEl = el.querySelector(".desc-tip-text");
+  const full = el.getAttribute("data-full") || "";
+  if (!full || full === "—") return;
+  if (textEl && textEl.scrollWidth <= textEl.clientWidth + 2) return;
+
+  const tip = ensureFloatingDescTip();
+  tip.textContent = full;
+  tip.hidden = false;
+  tip.style.visibility = "hidden";
+  tip.style.display = "block";
+
+  const r = el.getBoundingClientRect();
+  const tw = tip.offsetWidth;
+  const th = tip.offsetHeight;
+  let left = r.left;
+  let top = r.bottom + 6;
+  if (top + th > window.innerHeight - 8) top = r.top - th - 6;
+  if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+  if (left < 8) left = 8;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tip.style.visibility = "visible";
+}
+
+function bindDescTips(container) {
+  if (!container) return;
+  container.querySelectorAll(".desc-tip:not([data-tip-bound])").forEach((el) => {
+    el.dataset.tipBound = "1";
+    el.addEventListener("mouseenter", showDescFloatTip);
+    el.addEventListener("focus", showDescFloatTip);
+    el.addEventListener("mouseleave", hideDescFloatTip);
+    el.addEventListener("blur", hideDescFloatTip);
+  });
+}
+
+/** תיאור מקוצר בטבלה + tooltip בהעברת עכבר / מיקוד */
+function descCellHtml(text) {
+  const full = String(text ?? "").trim() || "—";
+  if (full === "—") return "—";
+  const safe = esc(full);
+  return `<span class="desc-tip" tabindex="0" data-full="${safe}"><span class="desc-tip-text">${safe}</span></span>`;
 }
 
 function supplierPhoneCell(s) {
@@ -245,7 +334,7 @@ function renderCompactTable(groups) {
         <tr class="summary-row" data-group-idx="${idx}" tabindex="0">
           <td data-label="מק״ט"><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
           <td class="sup-cell" data-label="ספקים">${supplierIndicatorHtml(supCount)}</td>
-          <td class="desc-cell" data-label="תיאור">${esc(desc)}</td>
+          <td class="desc-cell" data-label="תיאור">${descCellHtml(desc)}</td>
           <td data-label="סוג זכאי">${esc(zacai)}</td>
           <td class="num-cell" data-label="וריאנטים">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
           <td class="num-cell" data-label="טווח סכום">${esc(amountRange(variants))}</td>
@@ -285,6 +374,7 @@ function renderCompactTable(groups) {
       }
     });
   });
+  bindDescTips(resultsContainer);
 }
 
 function renderVariantsInDrawer(group, makt, groupIdx) {
@@ -364,7 +454,7 @@ function renderSingleMaktCollapse(group) {
         <span class="chevron">▾</span>
         <div class="group-main">
           <span class="makt-badge">${esc(makt)}</span>
-          <span class="group-title">${esc(group["תיאור פריט"] || variants[0]?.["תיאור פריט"])}</span>
+          <span class="group-title">${descCellHtml(group["תיאור פריט"] || variants[0]?.["תיאור פריט"])}</span>
         </div>
         <span class="variant-badge">${count} וריאנטים</span>
         ${supplierIndicatorHtml(group.supplier_count ?? 0)}
@@ -398,6 +488,7 @@ function renderSingleMaktCollapse(group) {
     const open = listEl.classList.toggle("is-collapsed");
     btn.querySelector(".chevron").textContent = open ? "▸" : "▾";
   });
+  bindDescTips(resultsContainer);
 }
 
 function renderResults(data) {
