@@ -1475,23 +1475,42 @@ body {
   font-weight: 600;
 }
 
+.proximity-col,
+.proximity-cell {
+  width: 5.5rem;
+  white-space: nowrap;
+}
+
+.proximity-cell {
+  vertical-align: middle;
+}
+
 .nearest-badge {
   display: inline-block;
-  margin-inline-start: 0.35rem;
-  padding: 0.1rem 0.4rem;
+  padding: 0.12rem 0.45rem;
   font-size: 0.68rem;
   font-weight: 700;
   background: var(--primary);
   color: #fff;
   border-radius: 999px;
   vertical-align: middle;
+  line-height: 1.3;
 }
 
 .proximity-tag {
-  display: inline-block;
-  font-size: 0.68rem;
+  display: block;
+  font-size: 0.65rem;
   color: var(--primary-hover);
   font-weight: 600;
+  margin-top: 0.2rem;
+  line-height: 1.25;
+}
+
+.proximity-tag--sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
 @media (max-width: 480px) {

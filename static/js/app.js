@@ -524,27 +524,60 @@ async function updateAiStatus() {
   }
 }
 
-function renderAiSupplierRows(suppliers, userLocation) {
-  if (!suppliers?.length) {
-    return '<tr><td colspan="6">אין ספקים מורשים למק״ט זה</td></tr>';
+function isSupplierNearest(s) {
+  return s.is_nearest === true || s.is_nearest === 1 || s.is_nearest === "true";
+}
+
+function applyNearestFallback(suppliers, userLocation) {
+  if (!suppliers?.length) return [];
+  const list = suppliers.map((s) => ({ ...s }));
+  if (list.some(isSupplierNearest)) return list;
+  if (!userLocation) return list;
+
+  let bestIdx = 0;
+  let bestScore = -1;
+  list.forEach((s, i) => {
+    const sc = Number(s.proximity_score) || 0;
+    if (sc > bestScore) {
+      bestScore = sc;
+      bestIdx = i;
+    }
+  });
+  list[bestIdx].is_nearest = true;
+  return list;
+}
+
+function renderProximityCell(s, nearest) {
+  if (nearest) {
+    const hint = s.proximity_label
+      ? `<span class="proximity-tag proximity-tag--sub">${esc(s.proximity_label)}</span>`
+      : "";
+    return `<span class="nearest-badge">הכי קרוב</span>${hint}`;
   }
-  return suppliers
+  if (s.proximity_label) {
+    return `<span class="proximity-tag">${esc(s.proximity_label)}</span>`;
+  }
+  return "—";
+}
+
+function renderAiSupplierRows(suppliers, userLocation) {
+  const rows = applyNearestFallback(suppliers, userLocation);
+  if (!rows.length) {
+    return '<tr><td colspan="7">אין ספקים מורשים למק״ט זה</td></tr>';
+  }
+  return rows
     .map((s) => {
-      const nearest = Boolean(s.is_nearest);
+      const nearest = isSupplierNearest(s);
       const rowCls = nearest ? "supplier-row supplier-row--nearest" : "supplier-row";
-      const badge = nearest
-        ? '<span class="nearest-badge">הכי קרוב</span>'
-        : s.proximity_label
-          ? `<span class="proximity-tag">${esc(s.proximity_label)}</span>`
-          : "";
       return `
       <tr class="${rowCls}">
-        <td>${esc(s["שם ספק"])}${badge}</td>
-        <td>${esc(s["יישוב קליניקה"])}</td>
-        <td>${supplierPhoneCell(s)}</td>
-        <td>${esc(s["אזור"])}</td>
-        <td>${esc(s["האם בתוקף"])}</td>
-        <td>${esc(s["מחיר הסכם"])}</td>
+        <td class="proximity-cell" data-label="קרבה">${renderProximityCell(s, nearest)}</td>
+        <td data-label="שם ספק">${esc(s["שם ספק"])}</td>
+        <td data-label="יישוב">${esc(s["יישוב קליניקה"])}</td>
+        <td data-label="טלפון">${supplierPhoneCell(s)}</td>
+        <td data-label="אזור">${esc(s["אזור"])}</td>
+        <td data-label="בתוקף">${esc(s["האם בתוקף"])}</td>
+        <td data-label="מחיר">${esc(s["מחיר הסכם"])}</td>
       </tr>`;
     })
     .join("");
@@ -587,6 +620,7 @@ function renderAiResults(data) {
           <table class="data-table ai-suppliers-table">
             <thead>
               <tr>
+                <th class="proximity-col">קרבה</th>
                 <th>שם ספק</th>
                 <th>יישוב</th>
                 <th>טלפון</th>
@@ -604,7 +638,11 @@ function renderAiResults(data) {
 
   aiResultsContainer.innerHTML = `
     <p class="ai-parsed">${parsedHtml}</p>
-    <p class="results-mode-hint">נמצאו ${data.count} מק״טים · ספק מסומן כהכי קרוב${loc ? ` ל־${esc(loc)}` : ""}</p>
+    <p class="results-mode-hint">נמצאו ${data.count} מק״טים${
+      loc
+        ? ` · ספק אחד מסומן כהכי קרוב ל־${esc(loc)}`
+        : " · לסימון קרבה ציין יישוב (למשל: סל חיפה או גר בחיפה)"
+    }</p>
     ${cards}`;
   aiResultsContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }

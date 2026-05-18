@@ -344,9 +344,11 @@ def rank_suppliers(
             str(x.get("שם ספק") or ""),
         ),
     )
+    user_key = (user_city or "").strip() or None
     for row in enriched:
         row["is_nearest"] = False
-    if enriched and user_city and int(enriched[0].get("proximity_score") or 0) > 0:
+    if enriched and user_key:
+        # תמיד ספק אחד — הראשון אחרי מיון (גם אם הציון נמוך)
         enriched[0]["is_nearest"] = True
     for row in enriched:
         row.pop("_fine_proximity", None)

@@ -250,7 +250,11 @@ def run_ai_search(
     groups.sort(key=group_rank, reverse=True)
     groups = groups[:limit_makts]
 
-    user_city = parsed.location_normalized
+    user_city = (parsed.location_normalized or "").strip() or None
+    if not user_city:
+        retry_loc = find_city_in_text(query)
+        if retry_loc:
+            user_city = normalize_city(retry_loc) or None
 
     results: list[dict[str, Any]] = []
     for g in groups:
