@@ -334,3 +334,30 @@ def get_suppliers_for_makt(
         return _run(conn)
     with get_db() as connection:
         return _run(connection)
+
+
+def get_items_for_makt(makt: str) -> list[dict[str, Any]]:
+    """כל הוריאנטים של מק״ט."""
+    makt_str = str(makt).strip()
+    select_cols = _select_items_sql()
+    with get_db() as conn:
+        if makt_str.isdigit():
+            rows = conn.execute(
+                f"""
+                SELECT {select_cols} FROM items
+                WHERE CAST([מק"ט] AS TEXT) = ?
+                   OR CAST([מק"ט] AS INTEGER) = CAST(? AS INTEGER)
+                ORDER BY entity_id
+                """,
+                (makt_str, makt_str),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"""
+                SELECT {select_cols} FROM items
+                WHERE CAST([מק"ט] AS TEXT) = ?
+                ORDER BY entity_id
+                """,
+                (makt_str,),
+            ).fetchall()
+    return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]

@@ -19,8 +19,11 @@ const copyCurlBtn = $("copyCurlBtn");
 const mobileFocusBar = $("mobileFocusBar");
 const mobileFocusLabel = $("mobileFocusLabel");
 const backToResultsBtn = $("backToResultsBtn");
+const exportSearchBtn = $("exportSearchBtn");
+const exportMaktBtn = $("exportMaktBtn");
 
 const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
+const EXPORT_SEARCH_LIMIT = 500;
 
 const COMPACT_TABLE_THRESHOLD = 8;
 const MAX_VARIANTS_PREVIEW = 100;
@@ -29,6 +32,7 @@ let drawerBound = false;
 
 let lastSearch = { q: "", match: "contains", field: "all" };
 let searchState = { groups: [], items: [] };
+let exportState = { makt: null, entityId: null };
 
 const VARIANT_KEYS = [
   ["רמת בסיס", "בסיס"],
@@ -64,6 +68,79 @@ function esc(text) {
 
 function getMakt(item) {
   return String(item?.['מק"ט'] ?? item?.מקט ?? "").trim();
+}
+
+function setExportMakt(makt, entityId = null) {
+  exportState.makt = makt || null;
+  exportState.entityId = entityId || null;
+  updateExportButtons();
+}
+
+function updateExportButtons() {
+  if (exportSearchBtn) {
+    exportSearchBtn.disabled = !(searchState.items?.length > 0);
+  }
+  if (exportMaktBtn) {
+    exportMaktBtn.disabled = !exportState.makt;
+  }
+}
+
+async function downloadExport(url, fallbackName) {
+  try {
+    showToast("מייצא לאקסל...");
+    const res = await fetch(url);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "שגיאה בייצוא");
+    }
+    const blob = await res.blob();
+    let name = fallbackName;
+    const cd = res.headers.get("Content-Disposition");
+    if (cd) {
+      const m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+      if (m) name = decodeURIComponent(m[1]);
+    }
+    const a = document.createElement("a");
+    const href = URL.createObjectURL(blob);
+    a.href = href;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+    showToast("הקובץ הורד בהצלחה");
+  } catch (e) {
+    showToast(e.message, true);
+  }
+}
+
+function exportSearchResults() {
+  if (!lastSearch.q) {
+    showToast("בצע חיפוש לפני ייצוא", true);
+    return;
+  }
+  const params = new URLSearchParams({
+    q: lastSearch.q,
+    match: lastSearch.match,
+    field: lastSearch.field,
+    limit: String(EXPORT_SEARCH_LIMIT),
+  });
+  downloadExport(`/api/export/search?${params}`, "kms_search.xlsx");
+}
+
+function exportMaktSuppliers() {
+  const makt = exportState.makt;
+  if (!makt) {
+    showToast("בחר מק״ט להצגת ספקים", true);
+    return;
+  }
+  const params = new URLSearchParams();
+  if (exportState.entityId) params.set("entity_id", exportState.entityId);
+  const qs = params.toString();
+  downloadExport(
+    `/api/export/makt/${encodeURIComponent(makt)}${qs ? `?${qs}` : ""}`,
+    `kms_makt_${makt}.xlsx`
+  );
 }
 
 function isMobileView() {
@@ -488,6 +565,7 @@ async function selectGroupFromTable(groupIdx, rowEl) {
   const count = variants.length;
 
   if (count > 1) {
+    setExportMakt(makt, null);
     renderVariantsInDrawer(group, makt, groupIdx);
     renderMaktSummary(makt, count);
     await loadSuppliers(makt, count);
@@ -561,6 +639,7 @@ function renderResults(data) {
 
   if (!items.length) {
     resultsContainer.innerHTML = '<p class="empty-state">לא נמצאו תוצאות</p>';
+    updateExportButtons();
     return;
   }
 
@@ -575,6 +654,7 @@ function renderResults(data) {
   }
 
   renderCompactTable(groups);
+  updateExportButtons();
 }
 
 function renderMaktSummary(makt, variantCount) {
@@ -642,9 +722,11 @@ function renderSuppliers(makt, suppliers, variantCount) {
 
 async function loadSuppliers(makt, variantCount = 1) {
   if (!makt) {
+    setExportMakt(null);
     renderSuppliers("", [], 0);
     return;
   }
+  setExportMakt(makt, exportState.entityId);
   suppliersBody.innerHTML =
     '<tr class="loading-row"><td colspan="5">טוען ספקים...</td></tr>';
   try {
@@ -659,6 +741,7 @@ async function loadSuppliers(makt, variantCount = 1) {
 async function selectVariantData(item, makt, variantCount) {
   if (!item?.entity_id) return;
 
+  setExportMakt(makt, item.entity_id);
   renderMaktSummary(makt, variantCount);
   await loadSuppliers(makt, variantCount);
   const drawer = $("variantsDrawer");
@@ -694,6 +777,7 @@ async function doSearch() {
     '<tr class="empty-row"><td colspan="4">בחר מק״ט להצגת ספקים</td></tr>';
   suppliersCount.textContent = "—";
   suppliersMakt.textContent = "";
+  setExportMakt(null);
   clearSelection();
 
   const params = new URLSearchParams({
@@ -770,5 +854,9 @@ backToResultsBtn?.addEventListener("click", () => {
   resultsContainer?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+exportSearchBtn?.addEventListener("click", exportSearchResults);
+exportMaktBtn?.addEventListener("click", exportMaktSuppliers);
+
 checkHealth();
+updateExportButtons();
 updateCurl();

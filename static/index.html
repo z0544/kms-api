@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.4.7" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.5.0" />
 </head>
 <body>
   <div class="app">
@@ -69,7 +69,12 @@
       <section class="card panel results-panel">
         <div class="panel-header">
           <h2>תוצאות</h2>
-          <span id="resultsCount" class="count-pill">0</span>
+          <div class="panel-actions">
+            <button id="exportSearchBtn" class="btn btn--ghost btn--small" type="button" disabled title="ייצוא תוצאות החיפוש לאקסל">
+              ייצוא אקסל
+            </button>
+            <span id="resultsCount" class="count-pill">0</span>
+          </div>
         </div>
         <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
           <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
@@ -96,7 +101,12 @@
         <section class="card panel suppliers-panel" id="suppliersPanel">
           <div class="panel-header">
             <h2>ספקים מורשים</h2>
-            <span id="suppliersCount" class="count-pill">—</span>
+            <div class="panel-actions">
+              <button id="exportMaktBtn" class="btn btn--ghost btn--small" type="button" disabled title="ייצוא מק״ט, וריאנטים וספקים (ספקים זהים לכל וריאנט)">
+                ייצוא מק״ט+ספקים
+              </button>
+              <span id="suppliersCount" class="count-pill">—</span>
+            </div>
           </div>
           <p id="suppliersMakt" class="suppliers-makt"></p>
           <div class="table-wrap">
@@ -121,6 +131,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.4.7"></script>
+  <script src="/static/js/app.js?v=0.5.0"></script>
 </body>
 </html>
