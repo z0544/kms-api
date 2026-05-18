@@ -25,7 +25,7 @@ from db_service import (
 from ai_search import run_ai_search
 from excel_export import build_makt_export, build_search_export
 
-API_VERSION = "0.7.0"
+API_VERSION = "0.7.1"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 

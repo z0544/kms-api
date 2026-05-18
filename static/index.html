@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.7.0" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.7.1" />
 </head>
 <body>
   <div class="app">
@@ -65,13 +65,31 @@
 
     <details class="card ai-search-card ai-search-details">
       <summary class="ai-search-summary">
-        <span>חיפוש חכם</span>
+        <span class="ai-search-title">
+          <span class="ai-icon" aria-hidden="true" title="חיפוש חכם">
+            <svg class="ai-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2l1.2 4.8L18 8l-4.8 1.2L12 14l-1.2-4.8L6 8l4.8-1.2L12 2z" fill="currentColor"/>
+              <path d="M19 4l.6 2.4L22 7l-2.4.6L19 10l-.6-2.4L16 7l2.4-.6L19 4z" fill="currentColor" opacity=".9"/>
+              <path d="M5 15l.5 2L7.5 17.5 5 18l-.5-2L2.5 15.5 5 15z" fill="currentColor" opacity=".9"/>
+            </svg>
+          </span>
+          <span class="ai-search-title-text">חיפוש חכם</span>
+          <span class="ai-label">AI</span>
+        </span>
         <span id="aiStatusBadge" class="badge badge--ok">חינמי · מקומי</span>
       </summary>
       <p class="hint ai-hint">תאר במילים חופשיות מה אתה צריך ואיפה אתה גר</p>
       <textarea id="aiQueryInput" class="ai-query-input" rows="2" placeholder="לדוגמה: ציוד שיקומי, גר בבאר שבע"></textarea>
       <div class="ai-search-actions">
-        <button id="aiSearchBtn" class="btn btn--primary" type="button">חפש</button>
+        <button id="aiSearchBtn" class="btn btn--primary btn--ai" type="button">
+          <span class="ai-icon ai-icon--sm" aria-hidden="true">
+            <svg class="ai-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2l1.2 4.8L18 8l-4.8 1.2L12 14l-1.2-4.8L6 8l4.8-1.2L12 2z" fill="currentColor"/>
+              <path d="M19 4l.6 2.4L22 7l-2.4.6L19 10l-.6-2.4L16 7l2.4-.6L19 4z" fill="currentColor" opacity=".9"/>
+            </svg>
+          </span>
+          חפש
+        </button>
       </div>
       <div id="aiResultsContainer" class="ai-results" hidden></div>
     </details>
@@ -153,6 +171,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.7.0"></script>
+  <script src="/static/js/app.js?v=0.7.1"></script>
 </body>
 </html>
