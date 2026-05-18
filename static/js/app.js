@@ -7,6 +7,7 @@ const searchBtn = $("searchBtn");
 const resultsContainer = $("resultsContainer");
 const resultsCount = $("resultsCount");
 const detailContent = $("detailContent");
+const detailPanel = $("detailPanel");
 const suppliersBody = $("suppliersBody");
 const suppliersCount = $("suppliersCount");
 const suppliersMakt = $("suppliersMakt");
@@ -38,6 +39,7 @@ const COMPACT_TABLE_THRESHOLD = 8;
 const MAX_VARIANTS_PREVIEW = 100;
 
 let drawerBound = false;
+let resultsDelegationBound = false;
 
 let lastSearch = { q: "", match: "contains", field: "all" };
 let searchState = { groups: [], items: [] };
@@ -346,8 +348,14 @@ function formatDetailValue(key, value) {
 }
 
 function showSelectionWorkspace(show) {
-  if (selectionPlaceholder) selectionPlaceholder.hidden = show;
-  if (selectionContent) selectionContent.hidden = !show;
+  if (selectionPlaceholder) {
+    if (show) selectionPlaceholder.setAttribute("hidden", "");
+    else selectionPlaceholder.removeAttribute("hidden");
+  }
+  if (selectionContent) {
+    if (show) selectionContent.removeAttribute("hidden");
+    else selectionContent.setAttribute("hidden", "");
+  }
 }
 
 function scrollToWorkspaceAside() {
@@ -369,7 +377,7 @@ function renderSelectionHero(makt, desc, variantCount, supplierCount) {
         ${multi ? `${variantCount} וריאנטים · הספקים זהים לכולם` : "וריאנט יחיד"}
         ${multi ? " · לחץ על וריאנט לפרטים נוספים" : ""}
       </p>
-    </motion>`;
+    </div>`;
   bindDescTips(selectionHeroBody);
 }
 
@@ -628,7 +636,46 @@ async function doAiSearch() {
 }
 
 function clearSelection() {
-  resultsContainer.querySelectorAll(".selected").forEach((el) => el.classList.remove("selected"));
+  document.querySelectorAll(".summary-row.selected, .variant-table-row.selected").forEach((el) => {
+    el.classList.remove("selected");
+  });
+}
+
+function bindResultsDelegation() {
+  if (!resultsContainer || resultsDelegationBound) return;
+  resultsDelegationBound = true;
+
+  resultsContainer.addEventListener("click", (e) => {
+    const row = e.target.closest(".summary-row");
+    if (!row || !resultsContainer.contains(row)) return;
+    selectGroupFromTable(Number(row.dataset.groupIdx), row);
+  });
+
+  resultsContainer.addEventListener("keydown", (e) => {
+    const row = e.target.closest(".summary-row");
+    if (!row || !resultsContainer.contains(row)) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      selectGroupFromTable(Number(row.dataset.groupIdx), row);
+    }
+  });
+}
+
+function bindVariantRow(row, variants, makt, variantCount) {
+  const pick = () => {
+    const tbody = row.closest("tbody");
+    tbody?.querySelectorAll(".variant-table-row").forEach((r) => r.classList.remove("selected"));
+    row.classList.add("selected");
+    const v = variants[Number(row.dataset.variantIdx)];
+    if (v) selectVariantData(v, makt, variantCount);
+  };
+  row.addEventListener("click", pick);
+  row.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      pick();
+    }
+  });
 }
 
 function findGroup(makt) {
@@ -675,18 +722,8 @@ function renderCompactTable(groups) {
     </div>`;
 
   bindDrawerControls();
+  bindResultsDelegation();
   if (variantsPanel) variantsPanel.hidden = true;
-
-  resultsContainer.querySelectorAll(".summary-row").forEach((row) => {
-    const open = () => selectGroupFromTable(Number(row.dataset.groupIdx), row);
-    row.addEventListener("click", open);
-    row.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        open();
-      }
-    });
-  });
   bindDescTips(resultsContainer);
 }
 
@@ -711,19 +748,7 @@ function renderVariantsInDrawer(group, makt, groupIdx) {
   panel.classList.remove("collapsed-mobile");
 
   body.querySelectorAll(".variant-table-row").forEach((row) => {
-    const pick = () => {
-      body.querySelectorAll(".variant-table-row").forEach((r) => r.classList.remove("selected"));
-      row.classList.add("selected");
-      const v = variants[Number(row.dataset.variantIdx)];
-      if (v) selectVariantData(v, makt, variants.length);
-    };
-    row.addEventListener("click", pick);
-    row.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        pick();
-      }
-    });
+    bindVariantRow(row, variants, makt, variants.length);
   });
 }
 
@@ -731,32 +756,45 @@ async function selectGroupFromTable(groupIdx, rowEl) {
   const group = searchState.groups[groupIdx];
   if (!group) return;
 
-  clearSelection();
-  rowEl?.classList.add("selected");
+  try {
+    clearSelection();
+    rowEl?.classList.add("selected");
 
-  const makt = getMakt(group);
-  const variants = group.variants || [];
-  const count = variants.length;
-  const desc = group["תיאור פריט"] || variants[0]?.["תיאור פריט"] || "—";
+    const makt = getMakt(group);
+    const variants = group.variants || [];
+    const count = variants.length;
+    const desc = group["תיאור פריט"] || variants[0]?.["תיאור פריט"] || "—";
 
-  showSelectionWorkspace(true);
-  renderSelectionHero(makt, desc, count, group.supplier_count ?? 0);
-  setExportMakt(makt, null);
+    showSelectionWorkspace(true);
+    renderSelectionHero(makt, desc, count, group.supplier_count ?? 0);
+    setExportMakt(makt, null);
 
-  if (count > 1) {
-    renderVariantsInDrawer(group, makt, groupIdx);
-  } else if (variantsPanel) {
-    variantsPanel.hidden = true;
+    if (count > 1) {
+      renderVariantsInDrawer(group, makt, groupIdx);
+    } else if (variantsPanel) {
+      variantsPanel.hidden = true;
+    }
+
+    detailContent.className = "detail-empty";
+    detailContent.textContent = "טוען פרטים...";
+
+    await loadSuppliers(makt, count);
+
+    if (variants.length) {
+      await loadVariantDetail(variants[0], makt);
+    } else {
+      detailContent.className = "detail-empty";
+      detailContent.textContent = "לא נמצאו וריאנטים למק״ט זה";
+    }
+
+    enterMobileFocus(count > 1 ? `מק״ט ${makt} · בחר וריאנט` : `מק״ט ${makt}`);
+    scrollToWorkspaceAside();
+    detailPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (e) {
+    detailContent.className = "detail-empty";
+    detailContent.textContent = "שגיאה בטעינת פרטים";
+    showToast(e.message || "שגיאה בטעינת פרטים", true);
   }
-
-  await loadSuppliers(makt, count);
-
-  if (variants.length) {
-    await loadVariantDetail(variants[0], makt, count);
-  }
-
-  enterMobileFocus(count > 1 ? `מק״ט ${makt} · בחר וריאנט` : `מק״ט ${makt}`);
-  scrollToWorkspaceAside();
 }
 
 /** Collapse – רק כשמק"ט אחד עם כמה וריאנטים */
@@ -792,12 +830,7 @@ function renderSingleMaktCollapse(group) {
   }
 
   list.querySelectorAll(".variant-table-row").forEach((row) => {
-    const pick = () => {
-      list.querySelectorAll(".variant-table-row").forEach((r) => r.classList.remove("selected"));
-      row.classList.add("selected");
-      selectVariantData(variants[Number(row.dataset.variantIdx)], makt, count);
-    };
-    row.addEventListener("click", pick);
+    bindVariantRow(row, variants, makt, count);
   });
 
   resultsContainer.querySelector('[data-action="toggle-variants"]')?.addEventListener("click", (e) => {
@@ -807,6 +840,7 @@ function renderSingleMaktCollapse(group) {
     btn.querySelector(".chevron").textContent = open ? "▸" : "▾";
   });
   bindDescTips(resultsContainer);
+  bindResultsDelegation();
 }
 
 function renderResults(data) {
@@ -830,6 +864,7 @@ function renderResults(data) {
 
   if (groups.length === 1 && (groups[0].variant_count || groups[0].variants?.length) > 1) {
     renderSingleMaktCollapse(groups[0]);
+    updateExportButtons();
     return;
   }
 
@@ -848,6 +883,11 @@ function renderMaktSummary(makt, variantCount) {
 }
 
 function renderDetail(item) {
+  if (!item || typeof item !== "object") {
+    detailContent.className = "detail-empty";
+    detailContent.textContent = "אין פרטים להצגה";
+    return;
+  }
   const skip = new Set(["authorized_suppliers"]);
   const rows = Object.entries(item)
     .filter(([k]) => !skip.has(k))
@@ -865,8 +905,9 @@ function renderDetail(item) {
     : "";
 
   detailContent.className = "detail-grid";
+  const entityLabel = item.entity_id || item.entityId;
   detailContent.innerHTML = `
-    <p class="entity-id-small">${esc(item.entity_id)}</p>
+    ${entityLabel ? `<p class="entity-id-small">${esc(entityLabel)}</p>` : ""}
     ${rows}
     ${note}
   `;
@@ -918,13 +959,23 @@ async function loadSuppliers(makt, variantCount = 1) {
   }
 }
 
-async function loadVariantDetail(item, makt, variantCount) {
-  if (!item?.entity_id) return;
+function renderDetailPreview(item) {
+  if (!item) return;
+  renderDetail(item);
+}
 
-  setExportMakt(makt, item.entity_id);
-  detailContent.innerHTML = '<p class="detail-empty">טוען...</p>';
+async function loadVariantDetail(item, makt) {
+  if (!item) return;
+
+  const entityId = item.entity_id || item.entityId;
+  if (entityId) setExportMakt(makt, entityId);
+
+  renderDetailPreview(item);
+
+  if (!entityId) return;
+
   try {
-    const full = await api(`/api/item/${encodeURIComponent(item.entity_id)}`);
+    const full = await api(`/api/item/${encodeURIComponent(entityId)}`);
     renderDetail(full);
   } catch {
     renderDetail(item);
@@ -932,10 +983,12 @@ async function loadVariantDetail(item, makt, variantCount) {
 }
 
 async function selectVariantData(item, makt, variantCount) {
-  if (!item?.entity_id) return;
+  if (!item) return;
   showSelectionWorkspace(true);
+  detailContent.className = "detail-empty";
+  detailContent.textContent = "טוען פרטים...";
   await loadSuppliers(makt, variantCount);
-  await loadVariantDetail(item, makt, variantCount);
+  await loadVariantDetail(item, makt);
   if (variantsPanel && variantCount > 1) {
     variantsPanel.classList.add("collapsed-mobile");
   }
@@ -959,7 +1012,7 @@ async function doSearch() {
   searchBtn.disabled = true;
   resultsContainer.innerHTML = '<p class="empty-state">מחפש...</p>';
   detailContent.className = "detail-empty";
-  detailContent.textContent = "טוען...";
+  detailContent.textContent = "בחר שורה מטבלת התוצאות";
   suppliersBody.innerHTML =
     '<tr class="empty-row"><td colspan="4">בחר מק״ט להצגת ספקים</td></tr>';
   suppliersCount.textContent = "—";
@@ -985,7 +1038,8 @@ async function doSearch() {
 
     const groups = data.groups || [];
     if (groups.length === 1) {
-      await selectGroupFromTable(0, null);
+      const row = resultsContainer.querySelector(".summary-row");
+      await selectGroupFromTable(0, row);
     }
   } catch (e) {
     resultsContainer.innerHTML = `<p class="empty-state">${esc(e.message)}</p>`;
@@ -1027,6 +1081,7 @@ searchInput.addEventListener("keydown", (e) => {
 });
 
 bindDrawerControls();
+bindResultsDelegation();
 
 backToResultsBtn?.addEventListener("click", () => {
   exitMobileFocus();
