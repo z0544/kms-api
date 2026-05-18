@@ -20,7 +20,7 @@ from db_service import (
     search_items,
 )
 
-API_VERSION = "0.4.4"
+API_VERSION = "0.4.5"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 app = FastAPI(

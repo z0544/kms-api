@@ -197,7 +197,66 @@ def group_items_by_makt(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             order.append(makt)
         groups[makt]["variants"].append(item)
         groups[makt]["variant_count"] += 1
-    return [groups[m] for m in order]
+    return enrich_groups_with_supplier_counts([groups[m] for m in order])
+
+
+def _makt_count_lookup_keys(makt: str) -> list[str]:
+    m = str(makt).strip()
+    if not m:
+        return []
+    keys = [m]
+    if m.isdigit():
+        keys.append(str(int(m)))
+    return keys
+
+
+def get_supplier_counts_for_makts(makts: list[str]) -> dict[str, int]:
+    """מפת מק\"ט → מספר ספקים ייחודיים (הסכמים)."""
+    unique = list({str(m).strip() for m in makts if str(m).strip()})
+    if not unique:
+        return {}
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT TRIM(CAST(a.[מק"ט] AS TEXT)) AS makt_key,
+                   COUNT(DISTINCT a.[מספר ספק]) AS cnt
+            FROM agreements a
+            GROUP BY makt_key
+            """
+        ).fetchall()
+
+    by_key: dict[str, int] = {}
+    for row in rows:
+        key = str(row["makt_key"]).strip()
+        cnt = int(row["cnt"])
+        by_key[key] = cnt
+        if key.isdigit():
+            by_key[str(int(key))] = cnt
+
+    result: dict[str, int] = {}
+    for makt in unique:
+        cnt = 0
+        for key in _makt_count_lookup_keys(makt):
+            if key in by_key:
+                cnt = by_key[key]
+                break
+        result[makt] = cnt
+    return result
+
+
+def enrich_groups_with_supplier_counts(
+    groups: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    makts = [str(g.get('מק"ט', "")).strip() for g in groups if g.get('מק"ט')]
+    counts = get_supplier_counts_for_makts(makts)
+    for group in groups:
+        makt = str(group.get('מק"ט', "")).strip()
+        cnt = counts.get(makt, 0)
+        group["supplier_count"] = cnt
+        for variant in group.get("variants", []):
+            variant["supplier_count"] = cnt
+    return groups
 
 
 def variant_summary(item: dict[str, Any]) -> str:

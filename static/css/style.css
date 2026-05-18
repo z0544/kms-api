@@ -671,6 +671,46 @@ body {
   border-radius: 999px;
 }
 
+.sup-col {
+  width: 3.25rem;
+  text-align: center;
+}
+
+.sup-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.sup-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  border-radius: 999px;
+}
+
+.sup-indicator--yes {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+
+.sup-indicator--none {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+}
+
+.group-header .sup-indicator {
+  margin-inline-start: 0.35rem;
+  vertical-align: middle;
+}
+
 .variants-drawer {
   flex-shrink: 0;
   border: 1px solid var(--primary);

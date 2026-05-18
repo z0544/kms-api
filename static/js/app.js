@@ -120,6 +120,19 @@ function cellVal(item, key) {
   return esc(v);
 }
 
+/** חיווי קטן: יש / אין ספקים מורשים למק״ט */
+function supplierIndicatorHtml(count) {
+  const n = Number(count);
+  if (!Number.isFinite(n) || n < 0) {
+    return '<span class="sup-indicator sup-indicator--none" title="אין ספקים מורשים">אין</span>';
+  }
+  if (n > 0) {
+    const label = n === 1 ? "ספק אחד מורשה" : `${n} ספקים מורשים`;
+    return `<span class="sup-indicator sup-indicator--yes" title="${esc(label)}">${n}</span>`;
+  }
+  return '<span class="sup-indicator sup-indicator--none" title="אין ספקים מורשים">אין</span>';
+}
+
 function bindDrawerControls() {
   if (drawerBound) return;
   drawerBound = true;
@@ -129,12 +142,18 @@ function bindDrawerControls() {
   });
 }
 
-function renderVariantsTable(variants, groupIdx, makt) {
+function renderVariantsTable(variants, groupIdx, makt, supplierCount) {
+  const sup =
+    supplierCount ??
+    variants[0]?.supplier_count ??
+    findGroup(makt)?.supplier_count ??
+    0;
   const rows = variants
     .map(
       (v, i) => `
     <tr class="variant-table-row" data-group-idx="${groupIdx}" data-variant-idx="${i}" tabindex="0">
       <td class="num-cell" data-label="#">${i + 1}</td>
+      <td class="sup-cell" data-label="ספקים">${supplierIndicatorHtml(v.supplier_count ?? sup)}</td>
       <td data-label="רמת בסיס">${cellVal(v, "רמת בסיס")}</td>
       <td data-label="רמת חריגה">${cellVal(v, "רמת חריגה")}</td>
       <td data-label="אחוז">${cellVal(v, "אחוז לחריגה")}</td>
@@ -151,6 +170,7 @@ function renderVariantsTable(variants, groupIdx, makt) {
         <thead>
           <tr>
             <th>#</th>
+            <th class="sup-col" title="ספקים מורשים למק״ט">ספקים</th>
             <th>רמת בסיס</th>
             <th>רמת חריגה</th>
             <th>אחוז</th>
@@ -220,9 +240,11 @@ function renderCompactTable(groups) {
       const count = group.variant_count || variants.length;
       const desc = group["תיאור פריט"] || variants[0]?.["תיאור פריט"] || "—";
       const zacai = variants[0]?.["סוג זכאי"] || "—";
+      const supCount = group.supplier_count ?? 0;
       return `
         <tr class="summary-row" data-group-idx="${idx}" tabindex="0">
           <td data-label="מק״ט"><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
+          <td class="sup-cell" data-label="ספקים">${supplierIndicatorHtml(supCount)}</td>
           <td class="desc-cell" data-label="תיאור">${esc(desc)}</td>
           <td data-label="סוג זכאי">${esc(zacai)}</td>
           <td class="num-cell" data-label="וריאנטים">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
@@ -238,6 +260,7 @@ function renderCompactTable(groups) {
         <thead>
           <tr>
             <th>מק״ט</th>
+            <th class="sup-col" title="ספקים מורשים">ספקים</th>
             <th>תיאור</th>
             <th>סוג זכאי</th>
             <th>וריאנטים</th>
@@ -276,7 +299,7 @@ function renderVariantsInDrawer(group, makt, groupIdx) {
   const preview = variants.slice(0, MAX_VARIANTS_PREVIEW);
   const more = variants.length - preview.length;
 
-  body.innerHTML = renderVariantsTable(preview, groupIdx, makt);
+  body.innerHTML = renderVariantsTable(preview, groupIdx, makt, group.supplier_count);
   if (more > 0) {
     body.innerHTML += `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`;
   }
@@ -344,12 +367,18 @@ function renderSingleMaktCollapse(group) {
           <span class="group-title">${esc(group["תיאור פריט"] || variants[0]?.["תיאור פריט"])}</span>
         </div>
         <span class="variant-badge">${count} וריאנטים</span>
+        ${supplierIndicatorHtml(group.supplier_count ?? 0)}
       </button>
       <div class="variant-list" id="variantListSingle"></div>
     </div>`;
 
   const list = $("variantListSingle");
-  list.innerHTML = renderVariantsTable(variants.slice(0, MAX_VARIANTS_PREVIEW), 0, makt);
+  list.innerHTML = renderVariantsTable(
+    variants.slice(0, MAX_VARIANTS_PREVIEW),
+    0,
+    makt,
+    group.supplier_count
+  );
   if (variants.length > MAX_VARIANTS_PREVIEW) {
     list.innerHTML += `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`;
   }
