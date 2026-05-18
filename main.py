@@ -23,9 +23,9 @@ from db_service import (
     search_items,
 )
 from ai_search import run_ai_search
-from excel_export import build_makt_export, build_search_export
+from excel_export import build_ai_search_export, build_makt_export, build_search_export
 
-API_VERSION = "0.7.6"
+API_VERSION = "0.7.8"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -197,6 +197,25 @@ def api_export_makt(
         selected_variant=selected,
     )
     return _xlsx_response(data, f"kms_makt_{makt}.xlsx")
+
+
+@app.get("/api/export/ai/search")
+def api_export_ai_search(
+    query: str = Query(..., min_length=3, max_length=500),
+    limit_makts: int = Query(default=15, ge=1, le=50),
+) -> Response:
+    _ensure_db()
+    result = run_ai_search(query.strip(), limit_makts=limit_makts)
+    if not result.get("results"):
+        detail = result.get("message") or "לא נמצאו תוצאות לייצוא"
+        raise HTTPException(status_code=404, detail=detail)
+    for row in result["results"]:
+        makt = str(row.get('מק"ט', "")).strip()
+        if makt:
+            row["variants"] = get_items_for_makt(makt)
+    data = build_ai_search_export(result)
+    stamp = query.strip().replace(" ", "_")[:24]
+    return _xlsx_response(data, f"kms_ai_{stamp}.xlsx")
 
 
 # תאימות לאחור

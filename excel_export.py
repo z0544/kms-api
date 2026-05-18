@@ -230,3 +230,100 @@ def build_makt_export(
     _write_table(ws_sup, sup_headers, sup_rows)
 
     return _workbook_to_bytes(wb)
+
+
+def build_ai_search_export(payload: dict[str, Any]) -> bytes:
+    """ייצוא תוצאות חיפוש חכם — מקטים, וריאנטים וספקים (כולל קרבה)."""
+    query = str(payload.get("query") or "")
+    parsed = payload.get("parsed") or {}
+    user_loc = payload.get("user_location") or ""
+    results: list[dict[str, Any]] = payload.get("results") or []
+
+    wb = openpyxl.Workbook()
+    ws_meta = wb.active
+    ws_meta.title = META_SHEET
+    _write_meta_rows(
+        ws_meta,
+        [
+            ("סוג ייצוא", "חיפוש חכם"),
+            ("תאריך ייצוא", _now_he()),
+            ("שאילתה", query),
+            ("מנוע", payload.get("engine") or "local"),
+            ("מיקום משתמש", user_loc or "—"),
+            ("הסבר", parsed.get("explanation") or ""),
+            ("ביטוי חיפוש", parsed.get("search_phrase") or ""),
+            ("מספר מקטים", len(results)),
+        ],
+    )
+
+    ws_makt = wb.create_sheet(MAKT_SHEET)
+    makt_headers = [
+        'מק"ט',
+        "תיאור פריט",
+        "מספר וריאנטים",
+        "מספר ספקים",
+        "ספק הכי קרוב",
+        "יישוב ספק קרוב",
+        "טווח סכום",
+    ]
+    makt_rows: list[list[Any]] = []
+    all_variants: list[list[Any]] = []
+    all_suppliers: list[list[Any]] = []
+
+    for r in results:
+        makt = r.get('מק"ט')
+        variants = r.get("variants") or []
+        suppliers = r.get("suppliers") or []
+        nearest = r.get("nearest_supplier") or {}
+        if not nearest:
+            nearest = next((s for s in suppliers if s.get("is_nearest")), {})
+
+        makt_rows.append(
+            [
+                makt,
+                r.get("תיאור פריט") or "",
+                r.get("variant_count") or len(variants),
+                r.get("supplier_count") or len(suppliers),
+                nearest.get("שם ספק") or "",
+                nearest.get("יישוב קליניקה") or "",
+                _amount_range(variants),
+            ]
+        )
+
+        for v in variants:
+            all_variants.append([makt] + [v.get(c) for c in ITEM_LIST_COLUMNS])
+
+        for s in suppliers:
+            proximity = "הכי קרוב" if s.get("is_nearest") else (s.get("proximity_label") or "")
+            all_suppliers.append(
+                [
+                    makt,
+                    proximity,
+                    s.get("שם ספק"),
+                    s.get("יישוב קליניקה"),
+                    _supplier_phone(s),
+                    s.get("אזור"),
+                    s.get("האם בתוקף"),
+                    s.get("מחיר הסכם"),
+                ]
+            )
+
+    _write_table(ws_makt, makt_headers, makt_rows)
+
+    ws_var = wb.create_sheet(VARIANTS_SHEET)
+    _write_table(ws_var, ['מק"ט'] + list(ITEM_LIST_COLUMNS), all_variants)
+
+    ws_sup = wb.create_sheet(SUPPLIERS_SHEET)
+    sup_headers = [
+        'מק"ט',
+        "קרבה",
+        "שם ספק",
+        "יישוב",
+        "טלפון",
+        "אזור",
+        "בתוקף",
+        "מחיר הסכם",
+    ]
+    _write_table(ws_sup, sup_headers, all_suppliers)
+
+    return _workbook_to_bytes(wb)

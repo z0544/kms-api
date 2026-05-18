@@ -22,6 +22,7 @@ const mobileFocusLabel = $("mobileFocusLabel");
 const backToResultsBtn = $("backToResultsBtn");
 const exportSearchBtn = $("exportSearchBtn");
 const exportMaktBtn = $("exportMaktBtn");
+const exportAiBtn = $("exportAiBtn");
 const aiQueryInput = $("aiQueryInput");
 const aiSearchBtn = $("aiSearchBtn");
 const aiResultsContainer = $("aiResultsContainer");
@@ -31,6 +32,8 @@ const selectionContent = $("selectionContent");
 const selectionHeroBody = $("selectionHeroBody");
 const variantsPanel = $("variantsPanel");
 const workspaceAside = $("workspaceAside");
+const workspaceEl = $("workspace");
+const aiSearchDetails = document.querySelector(".ai-search-details");
 
 const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
 const EXPORT_SEARCH_LIMIT = 500;
@@ -44,6 +47,7 @@ let resultsDelegationBound = false;
 let lastSearch = { q: "", match: "contains", field: "all" };
 let searchState = { groups: [], items: [] };
 let exportState = { makt: null, entityId: null };
+let lastAiSearch = { query: "", count: 0 };
 
 const VARIANT_KEYS = [
   ["רמת בסיס", "בסיס"],
@@ -107,6 +111,22 @@ function updateExportButtons() {
   if (exportMaktBtn) {
     exportMaktBtn.disabled = !exportState.makt;
   }
+  if (exportAiBtn) {
+    exportAiBtn.disabled = !(lastAiSearch.count > 0 && lastAiSearch.query);
+  }
+}
+
+function exportAiSearchResults() {
+  const query = lastAiSearch.query || aiQueryInput?.value?.trim();
+  if (!query || query.length < 3) {
+    showToast("בצע חיפוש חכם לפני ייצוא", true);
+    return;
+  }
+  const params = new URLSearchParams({
+    query,
+    limit_makts: "50",
+  });
+  downloadExport(`/api/export/ai/search?${params}`, "kms_ai_search.xlsx");
 }
 
 async function downloadExport(url, fallbackName) {
@@ -345,6 +365,14 @@ function supplierPhoneCell(s) {
 function formatDetailValue(key, value) {
   if (/טלפון|נייד|נייח/i.test(key)) return phoneLinkHtml(value);
   return esc(value);
+}
+
+function setAiSearchMode(active) {
+  document.querySelector(".app")?.classList.toggle("app--ai-mode", Boolean(active));
+  if (workspaceEl) {
+    if (active) workspaceEl.setAttribute("hidden", "");
+    else workspaceEl.removeAttribute("hidden");
+  }
 }
 
 function showSelectionWorkspace(show) {
@@ -599,6 +627,9 @@ function renderAiResults(data) {
   }
 
   if (!data.results?.length) {
+    setAiSearchMode(false);
+    lastAiSearch = { query: data.query || aiQueryInput?.value?.trim() || "", count: 0 };
+    updateExportButtons();
     aiResultsContainer.innerHTML = `
       <p class="ai-parsed">${parsedHtml}</p>
       <p class="empty-state">${esc(data.message || "לא נמצאו תוצאות")}</p>`;
@@ -644,6 +675,12 @@ function renderAiResults(data) {
         : " · לסימון קרבה ציין יישוב (למשל: סל חיפה או גר בחיפה)"
     }</p>
     ${cards}`;
+  setAiSearchMode((data.results?.length || 0) > 0);
+  lastAiSearch = {
+    query: data.query || aiQueryInput?.value?.trim() || "",
+    count: data.count || data.results?.length || 0,
+  };
+  updateExportButtons();
   aiResultsContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
@@ -654,6 +691,7 @@ async function doAiSearch() {
     return;
   }
   if (aiSearchBtn) aiSearchBtn.disabled = true;
+  if (aiSearchDetails && !aiSearchDetails.open) aiSearchDetails.open = true;
   if (aiResultsContainer) {
     aiResultsContainer.hidden = false;
     aiResultsContainer.innerHTML = '<p class="empty-state">מחפש...</p>';
@@ -664,6 +702,9 @@ async function doAiSearch() {
     if (data.message && !data.count) showToast(data.message, true);
     else showToast(`נמצאו ${data.count} מק״טים`);
   } catch (e) {
+    setAiSearchMode(false);
+    lastAiSearch = { query: query, count: 0 };
+    updateExportButtons();
     if (aiResultsContainer) {
       aiResultsContainer.innerHTML = `<p class="empty-state">${esc(e.message)}</p>`;
     }
@@ -1045,6 +1086,7 @@ async function doSearch() {
   updateCurl();
   hideDescFloatTip();
   exitMobileFocus();
+  setAiSearchMode(false);
   showSelectionWorkspace(false);
 
   searchBtn.disabled = true;
@@ -1128,6 +1170,7 @@ backToResultsBtn?.addEventListener("click", () => {
 
 exportSearchBtn?.addEventListener("click", exportSearchResults);
 exportMaktBtn?.addEventListener("click", exportMaktSuppliers);
+exportAiBtn?.addEventListener("click", exportAiSearchResults);
 
 aiSearchBtn?.addEventListener("click", doAiSearch);
 aiQueryInput?.addEventListener("keydown", (e) => {

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.7.6" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.7.8" />
 </head>
 <body>
   <div class="app">
@@ -77,9 +77,10 @@
         </span>
         <span id="aiStatusBadge" class="badge badge--ok">חינמי · מקומי</span>
       </summary>
-      <p class="hint ai-hint">תאר במילים חופשיות מה אתה צריך ואיפה אתה גר</p>
+      <p class="hint ai-hint">תאר במילים חופשיות מה אתה צריך ואיפה אתה גר — התוצאות והספקים יופיעו כאן למטה</p>
       <textarea id="aiQueryInput" class="ai-query-input" rows="2" placeholder="לדוגמה: ציוד שיקומי, גר בבאר שבע"></textarea>
       <div class="ai-search-actions">
+        <button id="exportAiBtn" class="btn btn--ghost btn--small" type="button" disabled>ייצוא אקסל</button>
         <button id="aiSearchBtn" class="btn btn--primary btn--ai" type="button">
           <span class="ai-icon ai-icon--sm" aria-hidden="true">
             <svg class="ai-icon-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -93,7 +94,7 @@
       <div id="aiResultsContainer" class="ai-results" hidden></div>
     </details>
 
-    <div class="workspace">
+    <div id="workspace" class="workspace">
       <section class="workspace-main">
         <section class="card panel results-panel">
           <div class="panel-header">
@@ -170,6 +171,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.7.6"></script>
+  <script src="/static/js/app.js?v=0.7.8"></script>
 </body>
 </html>

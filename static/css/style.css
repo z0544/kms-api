@@ -198,6 +198,19 @@ body {
   align-items: start;
 }
 
+/* חיפוש חכם: כל המידע בתוך כרטיס ה-AI — בלי פאנל תוצאות/פרטים למטה */
+.app--ai-mode .workspace {
+  display: none;
+}
+
+.app--ai-mode .ai-search-details {
+  margin-bottom: 0;
+}
+
+.app--ai-mode .ai-results {
+  max-height: none;
+}
+
 .workspace-main {
   min-width: 0;
 }
@@ -1413,6 +1426,9 @@ body {
 
 .ai-search-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
   justify-content: flex-start;
   margin-bottom: 0.75rem;
 }
