@@ -113,6 +113,9 @@ function phoneLinkHtml(value) {
 }
 
 let floatingDescTip = null;
+let descTipAnchor = null;
+let descTipShowMode = null;
+let descTipsGlobalBound = false;
 
 function ensureFloatingDescTip() {
   if (!floatingDescTip) {
@@ -125,17 +128,31 @@ function ensureFloatingDescTip() {
 }
 
 function hideDescFloatTip() {
-  if (floatingDescTip) floatingDescTip.hidden = true;
+  descTipAnchor = null;
+  descTipShowMode = null;
+  if (!floatingDescTip) return;
+  floatingDescTip.hidden = true;
+  floatingDescTip.style.visibility = "";
+  floatingDescTip.style.display = "";
+  floatingDescTip.textContent = "";
 }
 
 function showDescFloatTip(e) {
   const el = e.currentTarget;
   const textEl = el.querySelector(".desc-tip-text");
   const full = el.getAttribute("data-full") || "";
-  if (!full || full === "—") return;
-  if (textEl && textEl.scrollWidth <= textEl.clientWidth + 2) return;
+  if (!full || full === "—") {
+    hideDescFloatTip();
+    return;
+  }
+  if (textEl && textEl.scrollWidth <= textEl.clientWidth + 2) {
+    hideDescFloatTip();
+    return;
+  }
 
   const tip = ensureFloatingDescTip();
+  descTipAnchor = el;
+  descTipShowMode = e.type === "focus" ? "focus" : "pointer";
   tip.textContent = full;
   tip.hidden = false;
   tip.style.visibility = "hidden";
@@ -154,13 +171,55 @@ function showDescFloatTip(e) {
   tip.style.visibility = "visible";
 }
 
+function onDescTipMouseOut(e) {
+  const el = e.currentTarget;
+  const next = e.relatedTarget;
+  if (next instanceof Node && el.contains(next)) return;
+  if (descTipAnchor === el) hideDescFloatTip();
+}
+
+function bindDescTipsGlobal() {
+  if (descTipsGlobalBound) return;
+  descTipsGlobalBound = true;
+
+  document.addEventListener("scroll", hideDescFloatTip, true);
+  window.addEventListener("resize", hideDescFloatTip);
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (descTipAnchor?.contains(e.target)) return;
+      hideDescFloatTip();
+    },
+    true
+  );
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideDescFloatTip();
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!descTipAnchor || floatingDescTip?.hidden || descTipShowMode !== "pointer") return;
+    const t = e.target;
+    if (t instanceof Node && descTipAnchor.contains(t)) return;
+    hideDescFloatTip();
+  });
+
+  document.addEventListener("focusin", (e) => {
+    if (!descTipAnchor || floatingDescTip?.hidden) return;
+    if (e.target instanceof Node && descTipAnchor.contains(e.target)) return;
+    hideDescFloatTip();
+  });
+}
+
 function bindDescTips(container) {
+  bindDescTipsGlobal();
   if (!container) return;
   container.querySelectorAll(".desc-tip:not([data-tip-bound])").forEach((el) => {
     el.dataset.tipBound = "1";
     el.addEventListener("mouseenter", showDescFloatTip);
+    el.addEventListener("mouseout", onDescTipMouseOut);
     el.addEventListener("focus", showDescFloatTip);
-    el.addEventListener("mouseleave", hideDescFloatTip);
     el.addEventListener("blur", hideDescFloatTip);
   });
 }
@@ -198,6 +257,7 @@ function enterMobileFocus(label) {
 }
 
 function exitMobileFocus() {
+  hideDescFloatTip();
   document.querySelector(".app")?.classList.remove("mobile-focus");
   $("variantsDrawer")?.classList.remove("collapsed-mobile");
   if (mobileFocusBar) mobileFocusBar.hidden = true;
@@ -492,6 +552,7 @@ function renderSingleMaktCollapse(group) {
 }
 
 function renderResults(data) {
+  hideDescFloatTip();
   const items = data.items || [];
   const groups = data.groups || [];
   searchState = { groups, items };
@@ -622,6 +683,7 @@ async function doSearch() {
 
   lastSearch = { q, match: matchSelect.value, field: fieldSelect.value };
   updateCurl();
+  hideDescFloatTip();
   exitMobileFocus();
 
   searchBtn.disabled = true;
