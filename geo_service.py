@@ -132,6 +132,7 @@ def normalize_city(name: str | None) -> str:
 
 @lru_cache(maxsize=1)
 def load_settlement_district_map() -> dict[str, str]:
+    """נטען מ-geo_mapping.csv + רשימת גיבוי מובנית."""
     mapping = dict(_BUILTIN_SETTLEMENTS)
     if GEO_MAPPING_PATH.exists():
         with GEO_MAPPING_PATH.open(encoding="utf-8-sig", newline="") as f:

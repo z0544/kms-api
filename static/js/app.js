@@ -25,6 +25,11 @@ const aiQueryInput = $("aiQueryInput");
 const aiSearchBtn = $("aiSearchBtn");
 const aiResultsContainer = $("aiResultsContainer");
 const aiStatusBadge = $("aiStatusBadge");
+const selectionPlaceholder = $("selectionPlaceholder");
+const selectionContent = $("selectionContent");
+const selectionHeroBody = $("selectionHeroBody");
+const variantsPanel = $("variantsPanel");
+const workspaceAside = $("workspaceAside");
 
 const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
 const EXPORT_SEARCH_LIMIT = 500;
@@ -340,20 +345,48 @@ function formatDetailValue(key, value) {
   return esc(value);
 }
 
+function showSelectionWorkspace(show) {
+  if (selectionPlaceholder) selectionPlaceholder.hidden = show;
+  if (selectionContent) selectionContent.hidden = !show;
+}
+
+function scrollToWorkspaceAside() {
+  if (isMobileView()) return;
+  workspaceAside?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function renderSelectionHero(makt, desc, variantCount, supplierCount) {
+  if (!selectionHeroBody) return;
+  const multi = variantCount > 1;
+  selectionHeroBody.innerHTML = `
+    <div class="selection-hero-inner">
+      <div class="selection-hero-top">
+        <span class="makt-badge">${esc(makt)}</span>
+        ${supplierIndicatorHtml(supplierCount ?? 0)}
+      </div>
+      <p class="selection-hero-desc">${descCellHtml(desc)}</p>
+      <p class="selection-hero-meta">
+        ${multi ? `${variantCount} וריאנטים · הספקים זהים לכולם` : "וריאנט יחיד"}
+        ${multi ? " · לחץ על וריאנט לפרטים נוספים" : ""}
+      </p>
+    </motion>`;
+  bindDescTips(selectionHeroBody);
+}
+
 function enterMobileFocus(label) {
   if (!isMobileView()) return;
   document.querySelector(".app")?.classList.add("mobile-focus");
   if (mobileFocusBar) mobileFocusBar.hidden = false;
   if (mobileFocusLabel) mobileFocusLabel.textContent = label;
   requestAnimationFrame(() => {
-    $("detailPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    workspaceAside?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
 function exitMobileFocus() {
   hideDescFloatTip();
   document.querySelector(".app")?.classList.remove("mobile-focus");
-  $("variantsDrawer")?.classList.remove("collapsed-mobile");
+  variantsPanel?.classList.remove("collapsed-mobile");
   if (mobileFocusBar) mobileFocusBar.hidden = true;
 }
 
@@ -380,8 +413,7 @@ function bindDrawerControls() {
   if (drawerBound) return;
   drawerBound = true;
   $("closeDrawerBtn")?.addEventListener("click", () => {
-    $("variantsDrawer").hidden = true;
-    clearSelection();
+    if (variantsPanel) variantsPanel.hidden = true;
   });
 }
 
@@ -626,7 +658,6 @@ function renderCompactTable(groups) {
     .join("");
 
   resultsContainer.innerHTML = `
-    <p class="results-mode-hint">נמצאו ${groups.length} מק״טים – לחץ על שורה לצפייה בוריאנטים וספקים</p>
     <div class="table-wrap summary-table-wrap">
       <table class="data-table summary-table table--cards-mobile">
         <thead>
@@ -644,8 +675,7 @@ function renderCompactTable(groups) {
     </div>`;
 
   bindDrawerControls();
-  const drawerEl = $("variantsDrawer");
-  if (drawerEl) drawerEl.hidden = true;
+  if (variantsPanel) variantsPanel.hidden = true;
 
   resultsContainer.querySelectorAll(".summary-row").forEach((row) => {
     const open = () => selectGroupFromTable(Number(row.dataset.groupIdx), row);
@@ -661,10 +691,10 @@ function renderCompactTable(groups) {
 }
 
 function renderVariantsInDrawer(group, makt, groupIdx) {
-  const drawer = $("variantsDrawer");
+  const panel = variantsPanel || $("variantsPanel");
   const body = $("variantsDrawerBody");
   const title = $("drawerTitle");
-  if (!drawer || !body) return;
+  if (!panel || !body) return;
 
   const variants = group.variants || [];
   title.textContent = `מק״ט ${makt} · ${variants.length} וריאנטים`;
@@ -677,10 +707,8 @@ function renderVariantsInDrawer(group, makt, groupIdx) {
     body.innerHTML += `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`;
   }
 
-  drawer.hidden = false;
-  requestAnimationFrame(() => {
-    drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  });
+  panel.hidden = false;
+  panel.classList.remove("collapsed-mobile");
 
   body.querySelectorAll(".variant-table-row").forEach((row) => {
     const pick = () => {
@@ -709,20 +737,26 @@ async function selectGroupFromTable(groupIdx, rowEl) {
   const makt = getMakt(group);
   const variants = group.variants || [];
   const count = variants.length;
+  const desc = group["תיאור פריט"] || variants[0]?.["תיאור פריט"] || "—";
+
+  showSelectionWorkspace(true);
+  renderSelectionHero(makt, desc, count, group.supplier_count ?? 0);
+  setExportMakt(makt, null);
 
   if (count > 1) {
-    setExportMakt(makt, null);
     renderVariantsInDrawer(group, makt, groupIdx);
-    renderMaktSummary(makt, count);
-    await loadSuppliers(makt, count);
-    enterMobileFocus(`מק״ט ${makt} · בחר וריאנט`);
-    return;
+  } else if (variantsPanel) {
+    variantsPanel.hidden = true;
   }
 
-  $("variantsDrawer") && ($("variantsDrawer").hidden = true);
-  if (count === 1) {
-    await selectVariantData(variants[0], makt, 1);
+  await loadSuppliers(makt, count);
+
+  if (variants.length) {
+    await loadVariantDetail(variants[0], makt, count);
   }
+
+  enterMobileFocus(count > 1 ? `מק״ט ${makt} · בחר וריאנט` : `מק״ט ${makt}`);
+  scrollToWorkspaceAside();
 }
 
 /** Collapse – רק כשמק"ט אחד עם כמה וריאנטים */
@@ -884,16 +918,10 @@ async function loadSuppliers(makt, variantCount = 1) {
   }
 }
 
-async function selectVariantData(item, makt, variantCount) {
+async function loadVariantDetail(item, makt, variantCount) {
   if (!item?.entity_id) return;
 
   setExportMakt(makt, item.entity_id);
-  renderMaktSummary(makt, variantCount);
-  await loadSuppliers(makt, variantCount);
-  const drawer = $("variantsDrawer");
-  if (drawer) drawer.classList.add("collapsed-mobile");
-  enterMobileFocus(`מק״ט ${makt}`);
-
   detailContent.innerHTML = '<p class="detail-empty">טוען...</p>';
   try {
     const full = await api(`/api/item/${encodeURIComponent(item.entity_id)}`);
@@ -901,6 +929,18 @@ async function selectVariantData(item, makt, variantCount) {
   } catch {
     renderDetail(item);
   }
+}
+
+async function selectVariantData(item, makt, variantCount) {
+  if (!item?.entity_id) return;
+  showSelectionWorkspace(true);
+  await loadSuppliers(makt, variantCount);
+  await loadVariantDetail(item, makt, variantCount);
+  if (variantsPanel && variantCount > 1) {
+    variantsPanel.classList.add("collapsed-mobile");
+  }
+  enterMobileFocus(`מק״ט ${makt}`);
+  scrollToWorkspaceAside();
 }
 
 async function doSearch() {
@@ -914,11 +954,12 @@ async function doSearch() {
   updateCurl();
   hideDescFloatTip();
   exitMobileFocus();
+  showSelectionWorkspace(false);
 
   searchBtn.disabled = true;
   resultsContainer.innerHTML = '<p class="empty-state">מחפש...</p>';
   detailContent.className = "detail-empty";
-  detailContent.textContent = "בחר מק״ט מהטבלה";
+  detailContent.textContent = "טוען...";
   suppliersBody.innerHTML =
     '<tr class="empty-row"><td colspan="4">בחר מק״ט להצגת ספקים</td></tr>';
   suppliersCount.textContent = "—";
@@ -944,15 +985,7 @@ async function doSearch() {
 
     const groups = data.groups || [];
     if (groups.length === 1) {
-      const g = groups[0];
-      const count = g.variant_count || g.variants?.length || 0;
-      if (count > 1) {
-        await selectGroupFromTable(0, null);
-        renderMaktSummary(getMakt(g), count);
-        await loadSuppliers(getMakt(g), count);
-      } else if (count === 1) {
-        await selectVariantData(g.variants[0], getMakt(g), 1);
-      }
+      await selectGroupFromTable(0, null);
     }
   } catch (e) {
     resultsContainer.innerHTML = `<p class="empty-state">${esc(e.message)}</p>`;

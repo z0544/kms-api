@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.6.1" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.7.0" />
 </head>
 <body>
   <div class="app">
@@ -51,10 +51,8 @@
         <button id="searchBtn" class="btn btn--primary" type="button">חפש</button>
       </div>
       <div class="search-tools">
-        <button id="toggleCurlBtn" class="btn btn--ghost" type="button" aria-expanded="false">
-          הצג cURL (למפתחים)
-        </button>
-        <p id="searchHint" class="hint">חיפוש "מכיל" מחזיר הרבה מק״טים – יוצגו בטבלת סיכום. לוריאנטים של מק״ט אחד – בחר שדה "מק״ט"</p>
+        <button id="toggleCurlBtn" class="btn btn--ghost" type="button" aria-expanded="false">הצג cURL (למפתחים)</button>
+        <p id="searchHint" class="hint">חיפוש "מכיל" מחזיר הרבה מק״טים – לחץ על שורה לפרטים בפאנל השמאלי</p>
       </div>
       <div id="curlPanel" class="curl-panel" hidden>
         <div class="curl-header">
@@ -65,93 +63,96 @@
       </div>
     </section>
 
-    <section class="card ai-search-card">
-      <div class="ai-search-header">
-        <h2>חיפוש חכם</h2>
+    <details class="card ai-search-card ai-search-details">
+      <summary class="ai-search-summary">
+        <span>חיפוש חכם</span>
         <span id="aiStatusBadge" class="badge badge--ok">חינמי · מקומי</span>
-      </div>
-      <p class="hint ai-hint">
-        תאר במילים חופשיות מה אתה צריך ואיפה אתה גר — החיפוש רץ על השרת בלי OpenAI ובלי עלות.
-        דוגמאות: חיתולים למבוגרים בשדרות · עדשות מולטיפוקל בחיפה · כיסא גלגלים קל בתל אביב
-      </p>
-      <textarea
-        id="aiQueryInput"
-        class="ai-query-input"
-        rows="3"
-        placeholder="לדוגמה: מחפש ציוד שיקומי ליד הבית, גר בבאר שבע"
-      ></textarea>
+      </summary>
+      <p class="hint ai-hint">תאר במילים חופשיות מה אתה צריך ואיפה אתה גר</p>
+      <textarea id="aiQueryInput" class="ai-query-input" rows="2" placeholder="לדוגמה: ציוד שיקומי, גר בבאר שבע"></textarea>
       <div class="ai-search-actions">
         <button id="aiSearchBtn" class="btn btn--primary" type="button">חפש</button>
       </div>
       <div id="aiResultsContainer" class="ai-results" hidden></div>
-    </section>
+    </details>
 
-    <div class="layout">
-      <section class="card panel results-panel">
-        <div class="panel-header">
-          <h2>תוצאות</h2>
-          <div class="panel-actions">
-            <button id="exportSearchBtn" class="btn btn--ghost btn--small" type="button" disabled title="ייצוא תוצאות החיפוש לאקסל">
-              ייצוא אקסל
-            </button>
-            <span id="resultsCount" class="count-pill">0</span>
-          </div>
-        </div>
-        <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
-          <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
-          <span id="mobileFocusLabel"></span>
-        </div>
-        <div id="resultsContainer" class="results-scroll">
-          <p class="empty-state">בצע חיפוש להצגת תוצאות</p>
-        </div>
-        <div id="variantsDrawer" class="variants-drawer" hidden>
-          <div class="variants-drawer-header">
-            <h3 id="drawerTitle">וריאנטים</h3>
-            <button type="button" id="closeDrawerBtn" class="btn btn--ghost btn--small">סגור</button>
-          </div>
-          <div id="variantsDrawerBody" class="variants-drawer-body"></div>
-        </div>
-      </section>
-
-      <aside class="side">
-        <section class="card panel" id="detailPanel">
-          <h2>פרטי ישות</h2>
-          <div id="detailContent" class="detail-empty">בחר מק״ט או וריאנט</div>
-        </section>
-
-        <section class="card panel suppliers-panel" id="suppliersPanel">
+    <div class="workspace">
+      <section class="workspace-main">
+        <section class="card panel results-panel">
           <div class="panel-header">
-            <h2>ספקים מורשים</h2>
+            <h2>תוצאות חיפוש</h2>
             <div class="panel-actions">
-              <button id="exportMaktBtn" class="btn btn--ghost btn--small" type="button" disabled title="ייצוא מק״ט, וריאנטים וספקים (ספקים זהים לכל וריאנט)">
-                ייצוא מק״ט+ספקים
-              </button>
-              <span id="suppliersCount" class="count-pill">—</span>
+              <button id="exportSearchBtn" class="btn btn--ghost btn--small" type="button" disabled>ייצוא אקסל</button>
+              <span id="resultsCount" class="count-pill">0</span>
             </div>
           </div>
-          <p id="suppliersMakt" class="suppliers-makt"></p>
-          <div class="table-wrap">
-            <table id="suppliersTable" class="data-table table--cards-mobile">
-              <thead>
-                <tr>
-                  <th>שם ספק</th>
-                  <th>יישוב</th>
-                  <th>טלפון</th>
-                  <th>אזור</th>
-                  <th>בתוקף</th>
-                </tr>
-              </thead>
-              <tbody id="suppliersBody">
-                <tr class="empty-row"><td colspan="5">בחר מק״ט אב להצגת ספקים</td></tr>
-              </tbody>
-            </table>
+          <p class="results-hint">לחץ על שורה — פרטים וספקים בפאנל השמאלי</p>
+          <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
+            <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
+            <span id="mobileFocusLabel"></span>
+          </div>
+          <div id="resultsContainer" class="results-scroll">
+            <p class="empty-state">בצע חיפוש להצגת תוצאות</p>
           </div>
         </section>
+      </section>
+
+      <aside class="workspace-aside" id="workspaceAside">
+        <div id="selectionPlaceholder" class="selection-placeholder card">
+          <p class="selection-placeholder-title">פרטי מק״ט וספקים</p>
+          <p class="selection-placeholder-text">בחר שורה מהטבלה לצפייה בתיאור, וריאנטים וספקים</p>
+        </div>
+
+        <div id="selectionContent" class="selection-content" hidden>
+          <section class="card panel selection-hero" id="selectionHero">
+            <div id="selectionHeroBody"></div>
+          </section>
+
+          <section class="card panel variants-panel" id="variantsPanel" hidden>
+            <div class="variants-drawer-header">
+              <h3 id="drawerTitle">וריאנטים</h3>
+              <button type="button" id="closeDrawerBtn" class="btn btn--ghost btn--small">סגור</button>
+            </div>
+            <div id="variantsDrawerBody" class="variants-drawer-body"></div>
+          </section>
+
+          <section class="card panel" id="detailPanel">
+            <h2>פרטי ישות</h2>
+            <div id="detailContent" class="detail-empty">טוען...</div>
+          </section>
+
+          <section class="card panel suppliers-panel" id="suppliersPanel">
+            <div class="panel-header">
+              <h2>ספקים מורשים</h2>
+              <div class="panel-actions">
+                <button id="exportMaktBtn" class="btn btn--ghost btn--small" type="button" disabled>ייצוא</button>
+                <span id="suppliersCount" class="count-pill">—</span>
+              </div>
+            </div>
+            <p id="suppliersMakt" class="suppliers-makt"></p>
+            <div class="table-wrap suppliers-table-wrap">
+              <table id="suppliersTable" class="data-table table--cards-mobile">
+                <thead>
+                  <tr>
+                    <th>שם ספק</th>
+                    <th>יישוב</th>
+                    <th>טלפון</th>
+                    <th>אזור</th>
+                    <th>בתוקף</th>
+                  </tr>
+                </thead>
+                <tbody id="suppliersBody">
+                  <tr class="empty-row"><td colspan="5">טוען...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </aside>
     </div>
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.6.1"></script>
+  <script src="/static/js/app.js?v=0.7.0"></script>
 </body>
 </html>

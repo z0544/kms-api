@@ -189,9 +189,157 @@ body {
   align-items: start;
 }
 
+/* פריסת עבודה: תוצאות | פרטים דביקים */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.workspace-main {
+  min-width: 0;
+}
+
+.workspace-aside {
+  position: sticky;
+  top: 0.5rem;
+  max-height: calc(100vh - 1.25rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-bottom: 0.5rem;
+}
+
+.selection-placeholder {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border: 2px dashed var(--border);
+  background: #f8fafc;
+}
+
+.selection-placeholder-title {
+  font-weight: 700;
+  color: var(--primary-hover);
+  margin-bottom: 0.35rem;
+}
+
+.selection-placeholder-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.selection-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.selection-hero {
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #f0fdfa 0%, #fff 70%);
+  border-color: #99f6e4;
+}
+
+.selection-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.selection-hero-desc {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin-bottom: 0.35rem;
+}
+
+.selection-hero-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.results-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: -0.25rem 0 0.5rem;
+}
+
+.variants-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.variants-panel .variants-drawer-header {
+  padding: 0.65rem 0.85rem;
+  margin: 0;
+}
+
+.variants-panel .variants-drawer-body {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.suppliers-table-wrap {
+  max-height: 240px;
+}
+
+.selection-content .panel h2 {
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+}
+
+.selection-content .detail-grid {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.ai-search-details {
+  margin-bottom: 1rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ai-search-details[open] {
+  padding: 1rem 1.15rem;
+}
+
+.ai-search-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--primary-hover);
+  list-style: none;
+}
+
+.ai-search-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-search-details[open] .ai-search-summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.65rem;
+}
+
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -452,8 +600,11 @@ body {
 }
 
 .results-scroll {
-  max-height: 340px;
+  max-height: min(52vh, 520px);
   overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
 }
 
 .empty-state {
@@ -1071,12 +1222,19 @@ body {
   }
 
   /* מצב מיקוד אחרי בחירת מק״ט/וריאנט */
-  .app.mobile-focus .search-card {
+  .app.mobile-focus .search-card,
+  .app.mobile-focus .ai-search-details {
     display: none;
   }
 
-  .app.mobile-focus .results-scroll {
+  .app.mobile-focus .workspace-main {
     display: none;
+  }
+
+  .app.mobile-focus .workspace-aside {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .app.mobile-focus .panel-header {
@@ -1105,27 +1263,14 @@ body {
     color: var(--primary-hover);
   }
 
-  .app.mobile-focus .variants-drawer.collapsed-mobile .variants-drawer-body {
+  .app.mobile-focus .variants-panel.collapsed-mobile .variants-drawer-body {
     display: none;
   }
 
-  .app.mobile-focus .variants-drawer.collapsed-mobile .variants-drawer-header h3::after {
+  .app.mobile-focus .variants-panel.collapsed-mobile .variants-drawer-header h3::after {
     content: " · נבחר וריאנט";
     font-weight: 500;
     font-size: 0.8rem;
-  }
-
-  .app.mobile-focus .layout {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .app.mobile-focus .side {
-    order: 1;
-  }
-
-  .app.mobile-focus .results-panel {
-    order: 2;
   }
 }
 
