@@ -1,9 +1,7 @@
-"""חיפוש חכם בשפה טבעית — מקטים + ספקים לפי קרבה."""
+"""חיפוש חכם בשפה חופשית — מקומי וחינמי, ללא OpenAI."""
 
 from __future__ import annotations
 
-import json
-import os
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,228 +15,192 @@ from db_service import (
     get_suppliers_for_makt,
     group_items_by_makt,
 )
-from geo_service import normalize_city, rank_suppliers
+from geo_service import find_city_in_text, normalize_city, rank_suppliers
 
-TERM_SYNONYMS: dict[str, list[str]] = {
-    "טייטול": ["טייטול", "טיטול", "חיתול", "כוסית", "שימום"],
-    "טיטול": ["טייטול", "חיתול", "כוסית"],
-    "חיתול": ["חיתול", "חיתולים", "טייטול", "האגיס", "פמפרס", "כוסית"],
-    "חיתולים": ["חיתול", "חיתולים", "טייטול", "כוסית"],
-    "כוסית": ["כוסית", "חיתול", "טייטול"],
-    "מבוגר": ["מבוגר", "מבוגרים"],
-    "מבוגרים": ["מבוגר", "מבוגרים"],
-    "תינוק": ["תינוק", "תינוקות", "ינק"],
-    "עדשות": ["עדשות", "מולטיפוקל", "מגע"],
-    "משקפיים": ["משקפיים", "משקפי"],
-}
-
+# מילות עזר בעברית — לא משמשות לחיפוש במאגר
 STOPWORDS = frozenset(
     """
     אני אתה את אתם אנחנו הוא היא הם הן של על עם ב בב בבית גר גרה גרים
-    מחפש מחפשת רוצה צריך צריכה למצוא תן תני שיש איפה הכי קרוב אליי לי
-    עבור כדי שאני אשמח בבקשה גם כן לא כל מאוד יותר מאוד ואני שזה זה
+    מחפש מחפשת מחפשים רוצה רוצים צריך צריכה צריכים למצוא תן תני שיש
+    איפה הכי קרוב אליי לי אלי אלינו עבור כדי שאני אשמח בבקשה גם כן
+    לא כל מאוד יותר מאוד ואני שזה זה יש לי אצלי אצלנו איזה איזהו
+    מה שמי שיכול אפשר אפשרות דבר דברים מוצר מוצרים פריט פריטים
     """.split()
 )
 
 _HE_PREFIXES = ("ול", "ל", "ב", "מ", "ה", "ו", "כ", "ש")
 
-LOCATION_PATTERNS = [
-    re.compile(r"גר(?:ים|ה)?\s+ב[\-–]?\s*([א-ת\"'\s\-]{2,30})"),
-    re.compile(r"מתגורר(?:ת)?\s+ב[\-–]?\s*([א-ת\"'\s\-]{2,30})"),
-    re.compile(r"מגורים\s+ב[\-–]?\s*([א-ת\"'\s\-]{2,30})"),
-    re.compile(r"באזור\s+([א-ת\"'\s\-]{2,30})"),
-    re.compile(r"\bב([א-ת]{2,20}(?:\s+[א-ת]{2,15})?)\s*$"),
-]
-
 
 @dataclass
 class ParsedQuery:
     product_terms: list[str] = field(default_factory=list)
+    search_phrase: str = ""
     location: str | None = None
     location_normalized: str | None = None
     explanation: str = ""
-    parser: str = "heuristic"
-
-
-def _expand_terms(terms: list[str]) -> list[str]:
-    expanded: list[str] = []
-    seen: set[str] = set()
-    for t in terms:
-        t = t.strip()
-        if len(t) < 2:
-            continue
-        keys = [t, t.lower()]
-        for key in keys:
-            for word in TERM_SYNONYMS.get(key, [t]):
-                w = word.strip()
-                if w and w not in seen:
-                    seen.add(w)
-                    expanded.append(w)
-    return expanded[:12]
-
-
-def _extract_location_heuristic(text: str) -> str | None:
-    for pat in LOCATION_PATTERNS:
-        m = pat.search(text)
-        if m:
-            loc = m.group(1).strip(" .,;\"'")
-            loc = re.split(r"\s+(?:ו|ש|עם|ל)\s+", loc)[0].strip()
-            if len(loc) >= 2:
-                return loc
-    return None
+    parser: str = "local"
 
 
 def _strip_hebrew_prefix(word: str) -> str:
     w = word.strip()
     for _ in range(2):
+        changed = False
         for p in _HE_PREFIXES:
             if w.startswith(p) and len(w) > len(p) + 1:
                 w = w[len(p) :]
+                changed = True
                 break
-        else:
+        if not changed:
             break
     return w
 
 
-def _extract_terms_heuristic(text: str) -> list[str]:
-    cleaned = text
-    for pat in LOCATION_PATTERNS:
-        cleaned = pat.sub(" ", cleaned)
-    cleaned = re.sub(r"[^\w\s\"'-]+", " ", cleaned, flags=re.UNICODE)
-    words = re.findall(r"[א-ת]{2,}|\d+", cleaned)
-    terms: list[str] = []
+def _tokenize(text: str) -> list[str]:
+    words = re.findall(r"[א-ת0-9][א-ת0-9\-]{1,}", text)
+    tokens: list[str] = []
     for w in words:
-        if w in STOPWORDS:
+        if w in STOPWORDS or len(w) < 2:
             continue
         root = _strip_hebrew_prefix(w)
         if root and root not in STOPWORDS and len(root) >= 2:
-            terms.append(root)
-    if not terms:
-        terms = [
-            _strip_hebrew_prefix(w)
-            for w in re.findall(r"[א-ת]{2,}", text)
-            if _strip_hebrew_prefix(w) not in STOPWORDS
-        ][:5]
-    return _expand_terms(terms)
+            tokens.append(root)
+    return tokens
 
 
-def parse_query_heuristic(query: str) -> ParsedQuery:
+def _remove_city_from_text(text: str, city: str | None) -> str:
+    if not city:
+        return text
+    out = text
+    for variant in {city, normalize_city(city)}:
+        if variant:
+            out = re.sub(re.escape(variant), " ", out, flags=re.IGNORECASE)
+    return out
+
+
+def parse_smart_query(query: str) -> ParsedQuery:
     text = query.strip()
-    location = _extract_location_heuristic(text)
-    terms = _extract_terms_heuristic(text)
-    loc_norm = normalize_city(location) if location else None
-    expl = "חיפוש לפי מילות מפתח"
+    if not text:
+        return ParsedQuery(explanation="שאילתה ריקה")
+
+    location_raw = find_city_in_text(text)
+    loc_norm = normalize_city(location_raw) if location_raw else None
+
+    without_loc = _remove_city_from_text(text, location_raw)
+    for pat in (
+        r"גר(?:ים|ה)?\s+ב[\-–]?\s*",
+        r"מתגורר(?:ת)?\s+ב[\-–]?\s*",
+        r"מגורים\s+ב[\-–]?\s*",
+        r"באזור\s+",
+    ):
+        without_loc = re.sub(pat, " ", without_loc)
+
+    without_loc = re.sub(r"[^\w\s\"'-]+", " ", without_loc, flags=re.UNICODE)
+    without_loc = re.sub(r"\s+", " ", without_loc).strip()
+
+    terms = _tokenize(without_loc)
+    if not terms and without_loc:
+        terms = _tokenize(text)
+
+    # ביטוי שלם לחיפוש (למשל "עדשות מולטיפוקל" / "כיסא גלגלים")
+    phrase = without_loc if len(without_loc) >= 3 else ""
+    if not phrase and terms:
+        phrase = " ".join(terms[:6])
+
+    expl_parts = ["חיפוש חכם מקומי (חינמי)"]
+    if phrase:
+        expl_parts.append(f"ביטוי: {phrase[:60]}")
     if terms:
-        expl += f": {', '.join(terms[:5])}"
+        expl_parts.append(f"מילים: {', '.join(terms[:8])}")
     if loc_norm:
-        expl += f" · מיקום: {loc_norm}"
+        expl_parts.append(f"מיקום: {loc_norm}")
+
     return ParsedQuery(
         product_terms=terms,
-        location=location,
+        search_phrase=phrase,
+        location=location_raw,
         location_normalized=loc_norm,
-        explanation=expl,
-        parser="heuristic",
-    )
-
-
-def parse_query_openai(query: str) -> ParsedQuery | None:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return None
-    try:
-        import httpx
-    except ImportError:
-        return None
-
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    system = (
-        "אתה מנתח שאילתות חיפוש בעברית למערכת מקטים רפואיים וספקים. "
-        "החזר JSON בלבד עם המפתחות: product_terms (מערך מילים לחיפוש בתיאור מוצר), "
-        "location (יישוב מגורים של המשתמש או null), explanation (משפט קצר בעברית)."
-    )
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": query},
-        ],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.2,
-    }
-    try:
-        with httpx.Client(timeout=30.0) as client:
-            res = client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            res.raise_for_status()
-            content = res.json()["choices"][0]["message"]["content"]
-            data = json.loads(content)
-    except Exception:
-        return None
-
-    terms = [str(t).strip() for t in data.get("product_terms", []) if str(t).strip()]
-    location = data.get("location")
-    loc_str = str(location).strip() if location else None
-    loc_norm = normalize_city(loc_str) if loc_str else None
-    return ParsedQuery(
-        product_terms=_expand_terms(terms) if terms else _extract_terms_heuristic(query),
-        location=loc_str,
-        location_normalized=loc_norm,
-        explanation=str(data.get("explanation") or "ניתוח AI"),
-        parser="openai",
+        explanation=" · ".join(expl_parts),
+        parser="local",
     )
 
 
 def parse_ai_query(query: str) -> ParsedQuery:
-    text = query.strip()
-    if not text:
-        return ParsedQuery(explanation="שאילתה ריקה")
-    parsed = parse_query_openai(text)
-    if parsed and parsed.product_terms:
-        return parsed
-    return parse_query_heuristic(text)
+    return parse_smart_query(query)
 
 
-def _item_relevance_score(desc: str, terms: list[str]) -> int:
+def _item_relevance_score(
+    desc: str,
+    terms: list[str],
+    phrase: str,
+) -> int:
     d = desc.lower()
     score = 0
+    if phrase and len(phrase) >= 3 and phrase.lower() in d:
+        score += 12
+    if not terms:
+        return score
+    matched = 0
     for t in terms:
         tl = t.lower()
         if tl in d:
-            score += 3 if len(tl) >= 5 else 2 if len(tl) >= 4 else 1
+            matched += 1
+            score += 4 if len(tl) >= 5 else 3 if len(tl) >= 4 else 2
+    if terms and matched == len(terms):
+        score += 6
+    elif matched and matched >= max(1, len(terms) // 2):
+        score += 3
     return score
 
 
-def search_items_by_description_terms(
+def _min_relevance_score(terms: list[str], phrase: str) -> int:
+    if phrase and len(phrase) >= 4:
+        return 2
+    if len(terms) <= 1:
+        return 2
+    if len(terms) == 2:
+        return 3
+    return 4
+
+
+def search_items_smart(
     terms: list[str],
+    phrase: str,
     limit: int = 80,
 ) -> list[dict[str, Any]]:
-    if not terms:
-        return []
     select_cols = _select_items_sql()
-    clauses = " OR ".join(['[תיאור פריט] LIKE ?' for _ in terms])
-    params: list[Any] = [f"%{t}%" for t in terms]
+    clauses: list[str] = []
+    params: list[Any] = []
+
+    if phrase and len(phrase) >= 3:
+        clauses.append('[תיאור פריט] LIKE ?')
+        params.append(f"%{phrase}%")
+
+    for t in terms:
+        clauses.append('[תיאור פריט] LIKE ?')
+        params.append(f"%{t}%")
+
+    if not clauses:
+        return []
+
     sql = f"""
         SELECT {select_cols} FROM items
-        WHERE ({clauses})
+        WHERE ({' OR '.join(clauses)})
         LIMIT ?
     """
-    params.append(limit * 4)
+    params.append(limit * 5)
+
     with get_db() as conn:
         rows = conn.execute(sql, params).fetchall()
-    items = [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
 
+    items = [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
+    min_score = _min_relevance_score(terms, phrase)
     scored: list[tuple[int, dict[str, Any]]] = []
     for item in items:
         desc = str(item.get("תיאור פריט") or "")
-        sc = _item_relevance_score(desc, terms)
-        if sc >= 2:
+        sc = _item_relevance_score(desc, terms, phrase)
+        if sc >= min_score:
             scored.append((sc, item))
+
     scored.sort(key=lambda x: (-x[0], str(x[1].get('מק"ט', ""))))
     return [item for _, item in scored[:limit]]
 
@@ -251,43 +213,44 @@ def run_ai_search(
 ) -> dict[str, Any]:
     parsed = parse_ai_query(query)
     terms = parsed.product_terms
-    if not terms:
+    phrase = parsed.search_phrase
+
+    if not terms and not phrase:
         return {
             "query": query,
             "parsed": parsed.__dict__,
-            "ai_available": bool(os.getenv("OPENAI_API_KEY")),
+            "engine": "local",
             "count": 0,
             "results": [],
-            "message": "לא זוהו מילות חיפוש למוצר. נסה לפרט (למשל: חיתולים למבוגרים).",
+            "message": "לא זוהו מילות חיפוש. נסה לתאר את המוצר או השירות (למשל: עדשות, כיסא גלגלים, בדיקת שינה).",
         }
 
-    items = search_items_by_description_terms(terms, limit=item_limit)
+    items = search_items_smart(terms, phrase, limit=item_limit)
     if not items:
         return {
             "query": query,
             "parsed": parsed.__dict__,
-            "ai_available": bool(os.getenv("OPENAI_API_KEY")),
+            "engine": "local",
             "count": 0,
             "results": [],
-            "message": "לא נמצאו מקטים התואמים לתיאור.",
+            "message": "לא נמצאו מקטים התואמים לתיאור. נסה ניסוח אחר או מילים נרדפות.",
         }
 
     groups = enrich_groups_with_supplier_counts(group_items_by_makt(items))
+
     def group_rank(g: dict[str, Any]) -> tuple[int, int, int]:
         variants = g.get("variants") or []
         desc = str(
             g.get("תיאור פריט")
             or (variants[0].get("תיאור פריט") if variants else "")
         )
-        rel = _item_relevance_score(desc, terms)
+        rel = _item_relevance_score(desc, terms, phrase)
         return (rel, g.get("supplier_count") or 0, g.get("variant_count") or 0)
 
     groups.sort(key=group_rank, reverse=True)
     groups = groups[:limit_makts]
 
-    user_city = parsed.location_normalized or (
-        normalize_city(parsed.location) if parsed.location else None
-    )
+    user_city = parsed.location_normalized
 
     results: list[dict[str, Any]] = []
     for g in groups:
@@ -316,7 +279,7 @@ def run_ai_search(
     return {
         "query": query,
         "parsed": parsed.__dict__,
-        "ai_available": bool(os.getenv("OPENAI_API_KEY")),
+        "engine": "local",
         "count": len(results),
         "user_location": user_city,
         "results": results,

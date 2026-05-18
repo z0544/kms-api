@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.6.0" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.6.1" />
 </head>
 <body>
   <div class="app">
@@ -67,20 +67,21 @@
 
     <section class="card ai-search-card">
       <div class="ai-search-header">
-        <h2>חיפוש AI</h2>
-        <span id="aiStatusBadge" class="badge badge--loading">בודק...</span>
+        <h2>חיפוש חכם</h2>
+        <span id="aiStatusBadge" class="badge badge--ok">חינמי · מקומי</span>
       </div>
       <p class="hint ai-hint">
-        תאר במילים חופשיות מה אתה מחפש ואיפה אתה גר — המערכת תמצא מקטים מתאימים ותציג ספקים, עם הדגשת הספק הקרוב ביותר.
+        תאר במילים חופשיות מה אתה צריך ואיפה אתה גר — החיפוש רץ על השרת בלי OpenAI ובלי עלות.
+        דוגמאות: חיתולים למבוגרים בשדרות · עדשות מולטיפוקל בחיפה · כיסא גלגלים קל בתל אביב
       </p>
       <textarea
         id="aiQueryInput"
         class="ai-query-input"
         rows="3"
-        placeholder="לדוגמה: אני מחפש טייטולים למבוגרים ואני גר בשדרות"
+        placeholder="לדוגמה: מחפש ציוד שיקומי ליד הבית, גר בבאר שבע"
       ></textarea>
       <div class="ai-search-actions">
-        <button id="aiSearchBtn" class="btn btn--primary" type="button">חפש עם AI</button>
+        <button id="aiSearchBtn" class="btn btn--primary" type="button">חפש</button>
       </div>
       <div id="aiResultsContainer" class="ai-results" hidden></div>
     </section>
@@ -151,6 +152,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.6.0"></script>
+  <script src="/static/js/app.js?v=0.6.1"></script>
 </body>
 </html>

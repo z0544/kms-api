@@ -151,6 +151,45 @@ def get_district(city: str | None) -> str | None:
     return load_settlement_district_map().get(norm)
 
 
+@lru_cache(maxsize=1)
+def all_settlement_names_longest_first() -> tuple[str, ...]:
+    names: set[str] = set(load_settlement_district_map().keys())
+    names.update(CITY_ALIASES.keys())
+    names.update(CITY_ALIASES.values())
+    return tuple(sorted(names, key=lambda x: len(x), reverse=True))
+
+
+def find_city_in_text(text: str) -> str | None:
+    """מזהה יישוב בשאילתה — דפוסי שפה + רשימת יישובים."""
+    if not text:
+        return None
+    patterns = [
+        re.compile(r"גר(?:ים|ה)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
+        re.compile(r"מתגורר(?:ת)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
+        re.compile(r"מגורים\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
+        re.compile(r"באזור\s+([א-ת\"'\-\s]{2,35})"),
+        re.compile(r"(?:קרוב|ליד|ב)\s*([א-ת\"'\-\s]{2,25})\s*$"),
+    ]
+    for pat in patterns:
+        m = pat.search(text)
+        if m:
+            chunk = m.group(1).strip(" .,;\"'")
+            chunk = re.split(r"\s+(?:ו|ש|עם|ל|שאני)\s+", chunk)[0].strip()
+            if len(chunk) >= 2:
+                return normalize_city(chunk)
+
+    norm_text = _normalize_text(text)
+    for alias, canonical in sorted(CITY_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+        if _normalize_text(alias) in norm_text:
+            return canonical
+
+    for city in all_settlement_names_longest_first():
+        if _normalize_text(city) in norm_text:
+            return normalize_city(city)
+
+    return None
+
+
 def _nearby_rank(district: str | None, settlement: str) -> int:
     if not district:
         return 999

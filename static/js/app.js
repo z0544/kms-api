@@ -475,11 +475,11 @@ async function updateAiStatus() {
   if (!aiStatusBadge) return;
   try {
     const st = await api("/api/ai/status");
-    aiStatusBadge.textContent = st.openai_configured ? "AI מלא" : "חיפוש חכם";
-    aiStatusBadge.className = st.openai_configured ? "badge badge--ok" : "badge";
-    aiStatusBadge.title = st.hint || "";
+    aiStatusBadge.textContent = "חינמי · מקומי";
+    aiStatusBadge.className = "badge badge--ok";
+    aiStatusBadge.title = st.hint || "חיפוש חכם ללא עלות";
   } catch {
-    aiStatusBadge.textContent = "—";
+    aiStatusBadge.textContent = "חינמי";
     aiStatusBadge.className = "badge";
   }
 }
@@ -518,8 +518,11 @@ function renderAiResults(data) {
   const loc = data.user_location || parsed.location_normalized || parsed.location;
   let parsedHtml = `<strong>ניתוח:</strong> ${esc(parsed.explanation || "—")}`;
   if (loc) parsedHtml += ` · <strong>מיקום:</strong> ${esc(loc)}`;
+  if (parsed.search_phrase) {
+    parsedHtml += ` · <strong>ביטוי:</strong> ${esc(parsed.search_phrase)}`;
+  }
   if (parsed.product_terms?.length) {
-    parsedHtml += ` · <strong>מילות חיפוש:</strong> ${esc(parsed.product_terms.join(", "))}`;
+    parsedHtml += ` · <strong>מילים:</strong> ${esc(parsed.product_terms.join(", "))}`;
   }
 
   if (!data.results?.length) {
@@ -575,7 +578,7 @@ async function doAiSearch() {
   if (aiSearchBtn) aiSearchBtn.disabled = true;
   if (aiResultsContainer) {
     aiResultsContainer.hidden = false;
-    aiResultsContainer.innerHTML = '<p class="empty-state">מנתח ומחפש...</p>';
+    aiResultsContainer.innerHTML = '<p class="empty-state">מחפש...</p>';
   }
   try {
     const data = await apiPost("/api/ai/search", { query });
