@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KMS – חיפוש מקטים וספקים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <span class="brand-icon">◈</span>
+        <div>
+          <h1>מערכת KMS</h1>
+          <p class="subtitle">חיפוש מקטים, וריאנטים וספקים מורשים</p>
+        </div>
+      </div>
+      <div id="statusBadge" class="badge badge--loading">מתחבר...</div>
+    </header>
+
+    <section class="card search-card">
+      <div class="search-row">
+        <div class="field field--grow">
+          <label for="searchInput">חיפוש</label>
+          <input id="searchInput" type="search" placeholder="מק״ט, תיאור, ספק..." autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="matchSelect">התאמה</label>
+          <select id="matchSelect">
+            <option value="contains">מכיל</option>
+            <option value="startswith">מתחיל ב-</option>
+            <option value="endswith">מסתיים ב-</option>
+            <option value="exact">שווה</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fieldSelect">שדה</label>
+          <select id="fieldSelect">
+            <option value="all">הכל</option>
+            <option value="מקט">מק״ט</option>
+            <option value="תיאור">תיאור</option>
+            <option value="זכאי">סוג זכאי</option>
+            <option value="ספק">שם ספק</option>
+            <option value="entity_id">מזהה ישות</option>
+          </select>
+        </div>
+        <button id="searchBtn" class="btn btn--primary" type="button">חפש</button>
+      </div>
+      <div class="search-tools">
+        <button id="toggleCurlBtn" class="btn btn--ghost" type="button" aria-expanded="false">
+          הצג cURL (למפתחים)
+        </button>
+        <p id="searchHint" class="hint">חיפוש "מכיל" מחזיר הרבה מק״טים – יוצגו בטבלת סיכום. לוריאנטים של מק״ט אחד – בחר שדה "מק״ט"</p>
+      </div>
+      <div id="curlPanel" class="curl-panel" hidden>
+        <div class="curl-header">
+          <span>בקשת API לפי הפילטר הנוכחי</span>
+          <button id="copyCurlBtn" class="btn btn--small" type="button">העתק</button>
+        </div>
+        <pre id="curlCode" class="curl-code"></pre>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="card panel results-panel">
+        <div class="panel-header">
+          <h2>תוצאות</h2>
+          <span id="resultsCount" class="count-pill">0</span>
+        </div>
+        <div id="resultsContainer" class="results-scroll">
+          <p class="empty-state">בצע חיפוש להצגת תוצאות</p>
+        </div>
+        <div id="variantsDrawer" class="variants-drawer" hidden>
+          <div class="variants-drawer-header">
+            <h3 id="drawerTitle">וריאנטים</h3>
+            <button type="button" id="closeDrawerBtn" class="btn btn--ghost btn--small">סגור</button>
+          </div>
+          <div id="variantsDrawerBody" class="variants-drawer-body"></div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card panel" id="detailPanel">
+          <h2>פרטי ישות</h2>
+          <div id="detailContent" class="detail-empty">בחר מק״ט או וריאנט</div>
+        </section>
+
+        <section class="card panel suppliers-panel" id="suppliersPanel">
+          <div class="panel-header">
+            <h2>ספקים מורשים</h2>
+            <span id="suppliersCount" class="count-pill">—</span>
+          </div>
+          <p id="suppliersMakt" class="suppliers-makt"></p>
+          <div class="table-wrap">
+            <table id="suppliersTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>שם ספק</th>
+                  <th>יישוב</th>
+                  <th>אזור</th>
+                  <th>בתוקף</th>
+                </tr>
+              </thead>
+              <tbody id="suppliersBody">
+                <tr class="empty-row"><td colspan="4">בחר מק״ט אב להצגת ספקים</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

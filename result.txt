@@ -1,0 +1,4 @@
+﻿Database created: C:\Users\User\Modi\kms_database.db
+  items: 21291 rows
+  suppliers: 507 rows
+  agreements: 25483 rows
