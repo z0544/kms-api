@@ -34,7 +34,7 @@ from logging_setup import get_logger, setup_logging
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.2"
+API_VERSION = "0.8.3"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
