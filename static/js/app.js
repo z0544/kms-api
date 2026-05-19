@@ -646,17 +646,32 @@ function renderAiResults(data) {
   }
 
   const cards = data.results
-    .map((r) => {
+    .map((r, idx) => {
       const makt = r['מק"ט'];
+      const desc = esc(r["תיאור פריט"] || "—");
+      const supCount = r.supplier_count || 0;
+      const varCount = r.variant_count || 0;
       const note = r.supplier_note
         ? `<p class="hint-inline">${esc(r.supplier_note)}</p>`
         : "";
+      const statsLabel = `${varCount} וריאנטים · ${supCount} ספקים`;
       return `
       <article class="ai-makt-card">
-        <h3>מק״ט <span class="makt-badge makt-badge--sm">${esc(makt)}</span></h3>
-        <p class="ai-makt-meta">${esc(r["תיאור פריט"])} · ${r.variant_count || 0} וריאנטים · ${r.supplier_count || 0} ספקים</p>
-        ${note}
-        <div class="ai-suppliers-wrap table-wrap">
+        <details class="ai-makt-details">
+          <summary class="ai-makt-summary">
+            <span class="ai-makt-chevron" aria-hidden="true">▸</span>
+            <span class="ai-makt-summary-body">
+              <span class="ai-makt-summary-top">
+                <span class="makt-badge makt-badge--sm">מק״ט ${esc(makt)}</span>
+                <span class="ai-makt-pill">${supCount} ספקים</span>
+              </span>
+              <span class="ai-makt-desc">${desc}</span>
+              <span class="ai-makt-meta">${statsLabel} · לחץ להרחבה</span>
+            </span>
+          </summary>
+          <div class="ai-makt-panel" id="ai-makt-panel-${idx}">
+            ${note}
+            <div class="ai-suppliers-wrap table-wrap">
           <table class="data-table ai-suppliers-table">
             <thead>
               <tr>
@@ -672,6 +687,8 @@ function renderAiResults(data) {
             <tbody>${renderAiSupplierRows(r.suppliers, loc)}</tbody>
           </table>
         </div>
+          </div>
+        </details>
       </article>`;
     })
     .join("");

@@ -1450,20 +1450,100 @@ body {
 .ai-makt-card {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   background: #fff;
+  overflow: hidden;
 }
 
-.ai-makt-card h3 {
-  font-size: 0.95rem;
-  margin-bottom: 0.35rem;
+.ai-makt-details {
+  margin: 0;
+}
+
+.ai-makt-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.ai-makt-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-makt-summary::marker {
+  content: "";
+}
+
+.ai-makt-chevron {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--primary);
+  transition: transform 0.15s ease;
+}
+
+.ai-makt-details[open] .ai-makt-chevron {
+  transform: rotate(90deg);
+}
+
+.ai-makt-summary-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ai-makt-summary-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+
+.ai-makt-desc {
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.ai-makt-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .ai-makt-meta {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  margin-bottom: 0.5rem;
+}
+
+.ai-makt-panel {
+  padding: 0 0.75rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: #fafbfc;
+}
+
+.ai-makt-panel .hint-inline {
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.78rem;
+}
+
+.ai-makt-summary:hover {
+  background: #f8fafc;
+}
+
+.ai-makt-details[open] .ai-makt-summary {
+  background: #f0fdfa;
+  border-bottom: 1px solid var(--border);
 }
 
 .ai-suppliers-wrap {
