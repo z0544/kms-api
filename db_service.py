@@ -75,6 +75,12 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
         conn.close()
 
 
+def get_db_dep() -> Generator[sqlite3.Connection, None, None]:
+    """תלות FastAPI — חיבור SQLite אחד לכל בקשה HTTP."""
+    with get_db() as conn:
+        yield conn
+
+
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
 

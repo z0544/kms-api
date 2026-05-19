@@ -5,10 +5,10 @@ from __future__ import annotations
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from config import CORS_ORIGINS, DB_PATH, USE_FTS
 from db_service import (
     MatchMode,
-    get_db,
+    get_db_dep,
     get_item_by_entity_id,
     get_items_for_makt,
     get_suppliers_for_makt,
@@ -34,7 +34,9 @@ from logging_setup import get_logger, setup_logging
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.3"
+API_VERSION = "0.8.4"
+
+DbConn = Annotated[sqlite3.Connection, Depends(get_db_dep)]
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -142,12 +144,11 @@ def gui_home() -> FileResponse:
     summary="בריאות שרת",
     description="מחזיר סטטוס, גרסה וקיום של בסיס הנתונים. שימושי ל-load balancer.",
 )
-def health() -> dict[str, Any]:
+def health(conn: DbConn) -> dict[str, Any]:
     fts_info: dict[str, Any] = {"enabled": USE_FTS}
     if DB_PATH.exists():
         try:
-            with get_db() as conn:
-                fts_info.update(fts_status(conn))
+            fts_info.update(fts_status(conn))
         except sqlite3.Error as exc:
             fts_info["error"] = str(exc)
     return {
