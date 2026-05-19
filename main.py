@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,7 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
@@ -31,7 +32,7 @@ from logging_setup import get_logger, setup_logging
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.7.10"
+API_VERSION = "0.7.11"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -80,6 +81,28 @@ async def log_requests(request: Request, call_next):
             )
 
 
+@app.exception_handler(sqlite3.Error)
+async def _sqlite_error_handler(request: Request, exc: sqlite3.Error) -> JSONResponse:
+    logger.error("SQLite error on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "שגיאה בגישה לבסיס הנתונים"},
+    )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    # נופל לכאן רק כשאף handler/HTTPException לא תפס.
+    logger.exception(
+        "Unhandled exception on %s %s: %s",
+        request.method, request.url.path, exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "שגיאה פנימית בשרת"},
+    )
+
+
 def _ensure_db() -> None:
     if not DB_PATH.exists():
         raise HTTPException(
@@ -125,8 +148,11 @@ def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
     _ensure_db()
     try:
         return run_ai_search(body.query.strip())
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except sqlite3.Error as exc:
+        logger.error("שגיאת DB בחיפוש חכם: %s", exc, exc_info=True)
+        raise HTTPException(status_code=503, detail="שגיאה בגישה לבסיס הנתונים") from exc
 
 
 @app.get("/api/items")
