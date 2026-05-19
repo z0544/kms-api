@@ -35,7 +35,7 @@ from process_data import process_data
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.5"
+API_VERSION = "0.8.6"
 
 DbConn = Annotated[sqlite3.Connection, Depends(get_db_dep)]
 EXPORT_LIMIT = 500

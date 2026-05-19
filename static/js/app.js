@@ -562,6 +562,15 @@ function applyNearestFallback(suppliers, userLocation) {
   if (list.some(isSupplierNearest)) return list;
   if (!userLocation) return list;
 
+  if (list.some((s) => s.distance_km != null && s.distance_km !== "")) {
+    list.sort(
+      (a, b) =>
+        (Number(a.distance_km) || 9999) - (Number(b.distance_km) || 9999)
+    );
+    list[0].is_nearest = true;
+    return list;
+  }
+
   let bestIdx = 0;
   let bestScore = -1;
   list.forEach((s, i) => {
