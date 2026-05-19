@@ -6,6 +6,14 @@ DATA_DIR = Path(os.getenv("KMS_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = Path(os.getenv("KMS_DB_PATH", BASE_DIR / "kms_database.db"))
 GEO_MAPPING_PATH = Path(os.getenv("KMS_GEO_MAPPING", DATA_DIR / "geo_mapping.csv"))
 
+# CORS — רשימת origins מותרים. ברירת מחדל "*" שומרת על התנהגות נוכחית.
+# בפרודקשיין מומלץ להגדיר KMS_CORS_ORIGINS="https://example.com,https://other.com"
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("KMS_CORS_ORIGINS", "*").split(",")
+    if o.strip()
+]
+
 ITEMS_FILE = os.getenv(
     "KMS_ITEMS_FILE",
     "53331_-_שמש_-_פרוט_מקטים-_kms.xlsx",

@@ -7,11 +7,12 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from config import DB_PATH
+from config import CORS_ORIGINS, DB_PATH
 from db_service import (
     MatchMode,
     get_item_by_entity_id,
@@ -25,7 +26,7 @@ from db_service import (
 from ai_search import run_ai_search
 from excel_export import build_ai_search_export, build_makt_export, build_search_export
 
-API_VERSION = "0.7.8"
+API_VERSION = "0.7.9"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -33,6 +34,18 @@ app = FastAPI(
     title="KMS API POC",
     description="API וממשק לשליפת מקטים וספקים מורשים",
     version=API_VERSION,
+)
+
+# CORS: ברירת מחדל "*" שומרת על תאימות לאחור (כפי שהתנהג עד היום ללא middleware).
+# שים לב: כש-origin הוא "*" אסור לאפשר credentials=True.
+_allow_all = CORS_ORIGINS == ["*"] or "*" in CORS_ORIGINS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=not _allow_all,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 if STATIC_DIR.exists():
