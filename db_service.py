@@ -314,6 +314,39 @@ def get_item_by_entity_id(entity_id: str) -> dict[str, Any] | None:
         return item
 
 
+def _supplier_row_score(row: dict[str, Any]) -> int:
+    """ציון לבחירת שורה מייצגת כשיש כמה הסכמים לאותו ספק."""
+    score = 0
+    valid = str(row.get("האם בתוקף") or "").strip().lower()
+    if valid in ("כן", "yes", "1", "true"):
+        score += 20
+    price = row.get("מחיר הסכם")
+    if price is not None and str(price).strip() not in ("", "לא מוגדר", "0", "0.0"):
+        score += 10
+    return score
+
+
+def deduplicate_suppliers(suppliers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """מסיר כפילויות — במאגר יש שורת הסכם לכל וריאנט/מחיר, לא ספק ייחודי."""
+    by_key: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+
+    for row in suppliers:
+        sid = str(row.get("מספר ספק") or "").strip()
+        name = str(row.get("שם ספק") or "").strip()
+        city = str(row.get("יישוב קליניקה") or "").strip()
+        key = sid if sid else f"{name}|{city}"
+        if not key or key == "|":
+            continue
+        if key not in by_key:
+            by_key[key] = row
+            order.append(key)
+        elif _supplier_row_score(row) > _supplier_row_score(by_key[key]):
+            by_key[key] = row
+
+    return [by_key[k] for k in order]
+
+
 def get_suppliers_for_makt(
     makt: str,
     *,
@@ -355,7 +388,8 @@ def get_suppliers_for_makt(
             ORDER BY s.[שם ספק]
         """
         rows = connection.execute(sql, makt_params).fetchall()
-        return [clean_record(_row_to_dict(r), hide_undefined=True) for r in rows]
+        raw = [clean_record(_row_to_dict(r), hide_undefined=True) for r in rows]
+        return deduplicate_suppliers(raw)
 
     if conn is not None:
         return _run(conn)
