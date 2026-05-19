@@ -211,33 +211,54 @@ def _makt_count_lookup_keys(makt: str) -> list[str]:
 
 
 def get_supplier_counts_for_makts(makts: list[str]) -> dict[str, int]:
-    """מפת מק\"ט → מספר ספקים ייחודיים (הסכמים)."""
+    """מפת מק\"ט → מספר ספקים ייחודיים (הסכמים).
+
+    אופטימיזציה (v0.8.1):
+    - אופציה 1 — שאילתה ממוקדת עם WHERE IN (?, ...) במקום סריקה גורפת של agreements.
+    - שילוב גם של מפתחות "כמספר" וגם "כמחרוזת" כדי להתאים למצבי DB שונים.
+    """
     unique = list({str(m).strip() for m in makts if str(m).strip()})
     if not unique:
         return {}
 
+    # מכינים את כל הוריאנטים האפשריים (string + int) כדי להתאים לכל הטיפוסים ב-DB
+    lookup_set: set[str] = set()
+    variants_per_makt: dict[str, list[str]] = {}
+    for makt in unique:
+        keys = _makt_count_lookup_keys(makt)
+        variants_per_makt[makt] = keys
+        lookup_set.update(keys)
+
+    if not lookup_set:
+        return {m: 0 for m in unique}
+
+    placeholders = ", ".join(["?"] * len(lookup_set))
+    params = list(lookup_set)
+
+    sql = f"""
+        SELECT TRIM(CAST(a.[מק"ט] AS TEXT)) AS makt_key,
+               COUNT(DISTINCT a.[מספר ספק]) AS cnt
+        FROM agreements a
+        WHERE TRIM(CAST(a.[מק"ט] AS TEXT)) IN ({placeholders})
+        GROUP BY makt_key
+    """
+
     with get_db() as conn:
-        rows = conn.execute(
-            """
-            SELECT TRIM(CAST(a.[מק"ט] AS TEXT)) AS makt_key,
-                   COUNT(DISTINCT a.[מספר ספק]) AS cnt
-            FROM agreements a
-            GROUP BY makt_key
-            """
-        ).fetchall()
+        rows = conn.execute(sql, params).fetchall()
 
     by_key: dict[str, int] = {}
     for row in rows:
         key = str(row["makt_key"]).strip()
         cnt = int(row["cnt"])
         by_key[key] = cnt
+        # ניסיון גם בלי zero-padding
         if key.isdigit():
             by_key[str(int(key))] = cnt
 
     result: dict[str, int] = {}
     for makt in unique:
         cnt = 0
-        for key in _makt_count_lookup_keys(makt):
+        for key in variants_per_makt[makt]:
             if key in by_key:
                 cnt = by_key[key]
                 break
