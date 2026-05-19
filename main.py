@@ -32,14 +32,29 @@ from logging_setup import get_logger, setup_logging
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.7.11"
+API_VERSION = "0.7.12"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+TAGS_METADATA = [
+    {"name": "ui", "description": "ממשק GUI סטטי"},
+    {"name": "system", "description": "בריאות ומידע מערכת"},
+    {"name": "items", "description": "חיפוש פריטים ושליפת פרטי וריאנט"},
+    {"name": "suppliers", "description": "ספקים מורשים לפי מק״ט"},
+    {"name": "ai", "description": "חיפוש חכם מקומי בשפה חופשית"},
+    {"name": "export", "description": "ייצוא תוצאות לקבצי Excel (XLSX)"},
+    {"name": "legacy", "description": "Endpoints ישנים לתאימות לאחור"},
+]
+
 app = FastAPI(
-    title="KMS API POC",
-    description="API וממשק לשליפת מקטים וספקים מורשים",
+    title="KMS API",
+    description=(
+        "API וממשק לשליפת מקטים, וריאנטים וספקים מורשים.\n\n"
+        "כולל חיפוש חכם מקומי בעברית (ללא LLM), ייצוא Excel ודירוג קרבה גיאוגרפית."
+    ),
     version=API_VERSION,
+    openapi_tags=TAGS_METADATA,
+    contact={"name": "KMS Team"},
 )
 
 # CORS: ברירת מחדל "*" שומרת על תאימות לאחור (כפי שהתנהג עד היום ללא middleware).
@@ -111,7 +126,7 @@ def _ensure_db() -> None:
         )
 
 
-@app.get("/")
+@app.get("/", tags=["ui"], include_in_schema=False)
 def gui_home() -> FileResponse:
     index = STATIC_DIR / "index.html"
     if not index.exists():
@@ -119,7 +134,12 @@ def gui_home() -> FileResponse:
     return FileResponse(index)
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["system"],
+    summary="בריאות שרת",
+    description="מחזיר סטטוס, גרסה וקיום של בסיס הנתונים. שימושי ל-load balancer.",
+)
 def health() -> dict[str, Any]:
     return {
         "status": "ok",
@@ -131,10 +151,20 @@ def health() -> dict[str, Any]:
 
 
 class AiSearchRequest(BaseModel):
-    query: str = Field(..., min_length=3, max_length=500)
+    query: str = Field(
+        ...,
+        min_length=3,
+        max_length=500,
+        description="שאילתה חופשית בעברית. ניתן לכלול תיאור מוצר ו/או מיקום.",
+        examples=["כיסא גלגלים, גר בבאר שבע", "עדשות מולטיפוקל בחיפה"],
+    )
 
 
-@app.get("/api/ai/status")
+@app.get(
+    "/api/ai/status",
+    tags=["ai"],
+    summary="סטטוס מנוע חיפוש חכם",
+)
 def api_ai_status() -> dict[str, Any]:
     return {
         "engine": "local",
@@ -143,7 +173,20 @@ def api_ai_status() -> dict[str, Any]:
     }
 
 
-@app.post("/api/ai/search")
+@app.post(
+    "/api/ai/search",
+    tags=["ai"],
+    summary="חיפוש חכם בשפה חופשית",
+    description=(
+        "מקבל שאילתה חופשית בעברית, מחלץ מילות מפתח ומיקום, "
+        "ומחזיר רשימת מקטים מדורגים עם ספקים מורשים — כולל סימון ספק קרוב."
+    ),
+    responses={
+        200: {"description": "תוצאות מדורגות + ספק קרוב לפי מיקום"},
+        422: {"description": "שאילתה לא תקינה"},
+        503: {"description": "בסיס הנתונים לא זמין"},
+    },
+)
 def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
     _ensure_db()
     try:
@@ -155,12 +198,33 @@ def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="שגיאה בגישה לבסיס הנתונים") from exc
 
 
-@app.get("/api/items")
+@app.get(
+    "/api/items",
+    tags=["items"],
+    summary="חיפוש פריטים (עם קיבוץ אופציונלי לפי מק״ט)",
+    description=(
+        "חיפוש פריטים לפי שדה ומצב התאמה.\n"
+        "**field** תומך ב: `all`, `מקט`, `תיאור`, `זכאי`, `ספק`, `entity_id`.\n"
+        "**match** תומך ב: `contains` (ברירת מחדל), `exact`, `startswith`, `endswith`.\n"
+        "כאשר `grouped=true` (ברירת מחדל) — מקבץ וריאנטים לפי מק״ט עם supplier_count."
+    ),
+)
 def api_list_items(
-    q: str = Query(..., min_length=1),
-    match: str = Query(default="contains"),
-    field: str = Query(default="all"),
-    limit: int = Query(default=100, ge=1, le=500),
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="ערך לחיפוש (טקסט/מק״ט)",
+        examples=["כיסא"],
+    ),
+    match: str = Query(
+        default="contains",
+        description="מצב התאמה: contains/exact/startswith/endswith (כולל aliases בעברית)",
+    ),
+    field: str = Query(
+        default="all",
+        description="שדה לחיפוש: all/מקט/תיאור/זכאי/ספק/entity_id",
+    ),
+    limit: int = Query(default=100, ge=1, le=500, description="מגבלת תוצאות"),
     grouped: bool = Query(default=True, description="קיבוץ וריאנטים לפי מק\"ט"),
 ) -> dict[str, Any]:
     _ensure_db()
@@ -186,7 +250,12 @@ def api_list_items(
     return payload
 
 
-@app.get("/api/item/{entity_id}")
+@app.get(
+    "/api/item/{entity_id}",
+    tags=["items"],
+    summary="פרטי וריאנט מלאים לפי entity_id",
+    responses={404: {"description": "פריט לא נמצא"}},
+)
 def api_get_item(entity_id: str) -> dict[str, Any]:
     _ensure_db()
     item = get_item_by_entity_id(entity_id)
@@ -195,7 +264,12 @@ def api_get_item(entity_id: str) -> dict[str, Any]:
     return item
 
 
-@app.get("/api/makt/{makt}/suppliers")
+@app.get(
+    "/api/makt/{makt}/suppliers",
+    tags=["suppliers"],
+    summary="ספקים מורשים למק״ט",
+    description="מחזיר את כל הספקים בהסכם פעיל עבור מק״ט נתון.",
+)
 def api_suppliers_by_makt(makt: str) -> dict[str, Any]:
     _ensure_db()
     suppliers = get_suppliers_for_makt(makt)
@@ -213,7 +287,19 @@ def _xlsx_response(content: bytes, filename: str) -> Response:
     )
 
 
-@app.get("/api/export/search")
+@app.get(
+    "/api/export/search",
+    tags=["export"],
+    summary="ייצוא תוצאות חיפוש ל-Excel",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "קובץ XLSX להורדה",
+            "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}},
+        },
+        404: {"description": "לא נמצאו תוצאות לייצוא"},
+    },
+)
 def api_export_search(
     q: str = Query(..., min_length=1),
     match: str = Query(default="contains"),
@@ -241,7 +327,12 @@ def api_export_search(
     return _xlsx_response(data, f"kms_search_{stamp}.xlsx")
 
 
-@app.get("/api/export/makt/{makt}")
+@app.get(
+    "/api/export/makt/{makt}",
+    tags=["export"],
+    summary="ייצוא מק״ט + ספקים מורשים ל-Excel",
+    response_class=Response,
+)
 def api_export_makt(
     makt: str,
     entity_id: str | None = Query(default=None, description="וריאנט נבחר (אופציונלי)"),
@@ -266,7 +357,12 @@ def api_export_makt(
     return _xlsx_response(data, f"kms_makt_{makt}.xlsx")
 
 
-@app.get("/api/export/ai/search")
+@app.get(
+    "/api/export/ai/search",
+    tags=["export"],
+    summary="ייצוא תוצאות חיפוש חכם ל-Excel",
+    response_class=Response,
+)
 def api_export_ai_search(
     query: str = Query(..., min_length=3, max_length=500),
     limit_makts: int = Query(default=15, ge=1, le=50),
@@ -286,7 +382,12 @@ def api_export_ai_search(
 
 
 # תאימות לאחור
-@app.get("/items")
+@app.get(
+    "/items",
+    tags=["legacy"],
+    summary="(legacy) חיפוש פריטים - השתמש ב-/api/items",
+    deprecated=True,
+)
 def list_items_legacy(
     q: str = Query(..., min_length=1),
     match: str = Query(default="contains"),
@@ -296,7 +397,12 @@ def list_items_legacy(
     return api_list_items(q=q, match=match, field=field, limit=limit)
 
 
-@app.get("/item/{entity_id}")
+@app.get(
+    "/item/{entity_id}",
+    tags=["legacy"],
+    summary="(legacy) פרטי פריט - השתמש ב-/api/item/{entity_id}",
+    deprecated=True,
+)
 def get_item_legacy(
     entity_id: str,
     match: str = Query(default="exact"),
