@@ -28,3 +28,20 @@ def test_rank_suppliers_orders_by_distance() -> None:
 def test_find_city_sderot_alias() -> None:
     assert normalize_city("ספרסופה") == "שדרות"
     assert find_city_in_text("גר בשדרות") == "שדרות"
+
+
+def test_find_city_rehovot_in_product_query() -> None:
+    """רגרסיה: 'ב' בתוך 'רחובות' לא יזוהה כמיקום 'וט'."""
+    assert find_city_in_text("כסא גלגלים רחובות") == "רחובות"
+    from ai_search import parse_smart_query
+
+    parsed = parse_smart_query("כסא גלגלים רחובות")
+    assert parsed.location_normalized == "רחובות"
+    assert "רחובות" in parsed.search_phrase or "גלגלים" in parsed.search_phrase
+
+
+def test_distance_rehovot_closer_than_mevaseret() -> None:
+    d_rehovot = distance_km("רחובות", "רחובות")
+    d_mevaseret = distance_km("רחובות", "מבשרת ציון")
+    assert d_rehovot == 0.0
+    assert d_mevaseret > 20

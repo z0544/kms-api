@@ -279,32 +279,57 @@ def all_settlement_names_longest_first() -> tuple[str, ...]:
     return tuple(sorted(names, key=lambda x: len(x), reverse=True))
 
 
+def _city_from_pattern_chunk(chunk: str) -> str | None:
+    """מאמת שם יישוב מתוך דפוס שפה — לא מחזיר שברי מילים."""
+    chunk = chunk.strip(" .,;\"'")
+    chunk = re.split(r"\s+(?:ו|ש|עם|ל|שאני)\s+", chunk)[0].strip()
+    if len(chunk) < 3:
+        return None
+    city = normalize_city(chunk)
+    if get_coordinates(city) or get_district(city):
+        return city
+    match = get_close_matches(
+        chunk,
+        list(_CITY_COORDINATES.keys()),
+        n=1,
+        cutoff=0.85,
+    )
+    return match[0] if match else None
+
+
 def find_city_in_text(text: str) -> str | None:
     if not text:
         return None
+
+    norm_text = _normalize_text(text)
+
+    # 1. ערים מוכרות קודם — מונע זיהוי שגוי של האות ב' בתוך מילים כמו "רחובות"
+    for city in all_settlement_names_longest_first():
+        cn = _normalize_text(city)
+        if len(cn) >= 3 and cn in norm_text:
+            return normalize_city(city)
+
+    for alias, canonical in sorted(
+        CITY_ALIASES.items(), key=lambda x: len(x[0]), reverse=True,
+    ):
+        if len(alias) >= 3 and _normalize_text(alias) in norm_text:
+            return canonical
+
+    # 2. דפוסי שפה — 'ב' רק כמילת יחס (אחרי רווח/תחילת מחרוזת), לא בתוך מילה
     patterns = [
         re.compile(r"גר(?:ים|ה)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
         re.compile(r"מתגורר(?:ת)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
         re.compile(r"מגורים\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
         re.compile(r"באזור\s+([א-ת\"'\-\s]{2,35})"),
-        re.compile(r"(?:קרוב|ליד|ב)\s*([א-ת\"'\-\s]{2,25})\s*$"),
+        re.compile(r"(?:^|\s)(?:קרוב|ליד)\s+([א-ת\"'\-\s]{2,25})\s*$"),
+        re.compile(r"(?:^|\s)ב[\-–]?\s+([א-ת\"'\-\s]{2,25})\s*$"),
     ]
     for pat in patterns:
         m = pat.search(text)
         if m:
-            chunk = m.group(1).strip(" .,;\"'")
-            chunk = re.split(r"\s+(?:ו|ש|עם|ל|שאני)\s+", chunk)[0].strip()
-            if len(chunk) >= 2:
-                return normalize_city(chunk)
-
-    norm_text = _normalize_text(text)
-    for alias, canonical in sorted(CITY_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
-        if _normalize_text(alias) in norm_text:
-            return canonical
-
-    for city in all_settlement_names_longest_first():
-        if _normalize_text(city) in norm_text:
-            return normalize_city(city)
+            found = _city_from_pattern_chunk(m.group(1))
+            if found:
+                return found
 
     return None
 
