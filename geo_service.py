@@ -72,6 +72,10 @@ _CITY_COORDINATES: dict[str, tuple[float, float]] = {
     "הרצליה": (32.1660, 34.8430),
     "רעננה": (32.1840, 34.8710),
     "הוד השרון": (32.1590, 34.8930),
+    "חבצלת השרון": (32.2680, 34.9180),
+    "קדימה-צורן": (32.2690, 34.9170),
+    "זמר": (32.2640, 34.9220),
+    "אבן יהודה": (32.2680, 34.8860),
     "כפר יונה": (32.3170, 34.9350),
     "טייבה": (32.2660, 35.0080),
     "טירה": (32.2340, 34.9500),
@@ -157,6 +161,9 @@ _BUILTIN_SETTLEMENTS: dict[str, str] = {
     "כרמיאל": "מחוז הצפון",
     "בית שמש": "מחוז ירושלים",
     "מעלה אדומים": "מחוז ירושלים",
+    "חבצלת השרון": "מחוז המרכז",
+    "קדימה-צורן": "מחוז המרכז",
+    "אבן יהודה": "מחוז המרכז",
 }
 
 CITY_ALIASES: dict[str, str] = {
@@ -178,6 +185,8 @@ CITY_ALIASES: dict[str, str] = {
     "ירושלים": "ירושלים",
     "אשדוד": "אשדוד",
     "אשקלון": "אשקלון",
+    "חבצלת": "חבצלת השרון",
+    "חבצלת השרון": "חבצלת השרון",
 }
 
 _DISTRICT_ALIASES: dict[str, str] = {
@@ -279,6 +288,35 @@ def all_settlement_names_longest_first() -> tuple[str, ...]:
     return tuple(sorted(names, key=lambda x: len(x), reverse=True))
 
 
+@lru_cache(maxsize=1)
+def _known_city_names() -> frozenset[str]:
+    names: set[str] = set(_CITY_COORDINATES.keys())
+    names.update(load_settlement_district_map().keys())
+    names.update(CITY_ALIASES.values())
+    return frozenset(names)
+
+
+def _find_multiword_city(norm_text: str) -> str | None:
+    """מזהה יישוב בן 2–3 מילים (למשל חבצלת השרון, תל אביב - יפו)."""
+    words = re.findall(r"[א-ת][א-ת\-']{1,}", norm_text)
+    if len(words) < 2:
+        return None
+    known = _known_city_names()
+    best: str | None = None
+    best_len = 0
+    for n in (3, 2):
+        for i in range(len(words) - n + 1):
+            phrase = " ".join(words[i : i + n])
+            if len(phrase) < 4:
+                continue
+            cand = normalize_city(phrase)
+            if cand in known:
+                if len(phrase) > best_len:
+                    best = cand
+                    best_len = len(phrase)
+    return best
+
+
 def _city_from_pattern_chunk(chunk: str) -> str | None:
     """מאמת שם יישוב מתוך דפוס שפה — לא מחזיר שברי מילים."""
     chunk = chunk.strip(" .,;\"'")
@@ -303,7 +341,12 @@ def find_city_in_text(text: str) -> str | None:
 
     norm_text = _normalize_text(text)
 
-    # 1. ערים מוכרות קודם — מונע זיהוי שגוי של האות ב' בתוך מילים כמו "רחובות"
+    # 1. יישובים מרובי מילים (חבצלת השרון, פרדס חנה-כרכור)
+    phrase_city = _find_multiword_city(norm_text)
+    if phrase_city:
+        return phrase_city
+
+    # 2. ערים מוכרות — מונע זיהוי שגוי של האות ב' בתוך מילים כמו "רחובות"
     for city in all_settlement_names_longest_first():
         cn = _normalize_text(city)
         if len(cn) >= 3 and cn in norm_text:
@@ -315,7 +358,7 @@ def find_city_in_text(text: str) -> str | None:
         if len(alias) >= 3 and _normalize_text(alias) in norm_text:
             return canonical
 
-    # 2. דפוסי שפה — 'ב' רק כמילת יחס (אחרי רווח/תחילת מחרוזת), לא בתוך מילה
+    # 3. דפוסי שפה — 'ב' רק כמילת יחס (אחרי רווח/תחילת מחרוזת), לא בתוך מילה
     patterns = [
         re.compile(r"גר(?:ים|ה)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),
         re.compile(r"מתגורר(?:ת)?\s+ב[\-–]?\s*([א-ת\"'\-\s]{2,35})"),

@@ -40,6 +40,15 @@ def test_find_city_rehovot_in_product_query() -> None:
     assert "רחובות" in parsed.search_phrase or "גלגלים" in parsed.search_phrase
 
 
+def test_find_city_havatzelet_hasharon() -> None:
+    q = "טיפול פיזיותרפי למשותקים חבצלת השרון"
+    assert find_city_in_text(q) == "חבצלת השרון"
+    from ai_search import parse_smart_query
+
+    parsed = parse_smart_query(q)
+    assert parsed.location_normalized == "חבצלת השרון"
+
+
 def test_distance_rehovot_closer_than_mevaseret() -> None:
     d_rehovot = distance_km("רחובות", "רחובות")
     d_mevaseret = distance_km("רחובות", "מבשרת ציון")
