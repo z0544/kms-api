@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from config import USE_FTS
 from db_service import (
     ITEM_LIST_COLUMNS,
     _pick_columns,
@@ -15,6 +16,7 @@ from db_service import (
     get_suppliers_for_makt,
     group_items_by_makt,
 )
+from fts_service import search_rowids_by_fts
 from geo_service import find_city_in_text, normalize_city, rank_suppliers
 from logging_setup import get_logger
 
@@ -165,37 +167,52 @@ def _min_relevance_score(terms: list[str], phrase: str) -> int:
     return 4
 
 
+def _fetch_by_rowids(conn, rowids: list[int]) -> list[dict[str, Any]]:
+    if not rowids:
+        return []
+    select_cols = _select_items_sql()
+    placeholders = ", ".join(["?"] * len(rowids))
+    rows = conn.execute(
+        f"SELECT {select_cols} FROM items WHERE rowid IN ({placeholders})",
+        rowids,
+    ).fetchall()
+    return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
+
+
+def _search_via_like(conn, terms: list[str], phrase: str, limit: int) -> list[dict[str, Any]]:
+    select_cols = _select_items_sql()
+    clauses: list[str] = []
+    params: list[Any] = []
+    if phrase and len(phrase) >= 3:
+        clauses.append('[תיאור פריט] LIKE ?')
+        params.append(f"%{phrase}%")
+    for t in terms:
+        clauses.append('[תיאור פריט] LIKE ?')
+        params.append(f"%{t}%")
+    if not clauses:
+        return []
+    sql = f"SELECT {select_cols} FROM items WHERE ({' OR '.join(clauses)}) LIMIT ?"
+    params.append(limit * 5)
+    rows = conn.execute(sql, params).fetchall()
+    return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
+
+
 def search_items_smart(
     terms: list[str],
     phrase: str,
     limit: int = 80,
 ) -> list[dict[str, Any]]:
-    select_cols = _select_items_sql()
-    clauses: list[str] = []
-    params: list[Any] = []
-
-    if phrase and len(phrase) >= 3:
-        clauses.append('[תיאור פריט] LIKE ?')
-        params.append(f"%{phrase}%")
-
-    for t in terms:
-        clauses.append('[תיאור פריט] LIKE ?')
-        params.append(f"%{t}%")
-
-    if not clauses:
+    if not terms and not phrase:
         return []
 
-    sql = f"""
-        SELECT {select_cols} FROM items
-        WHERE ({' OR '.join(clauses)})
-        LIMIT ?
-    """
-    params.append(limit * 5)
-
     with get_db() as conn:
-        rows = conn.execute(sql, params).fetchall()
-
-    items = [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
+        items: list[dict[str, Any]] | None = None
+        if USE_FTS:
+            rowids = search_rowids_by_fts(conn, terms, phrase, limit=limit * 5)
+            if rowids is not None:
+                items = _fetch_by_rowids(conn, rowids)
+        if items is None:
+            items = _search_via_like(conn, terms, phrase, limit)
     min_score = _min_relevance_score(terms, phrase)
     scored: list[tuple[int, dict[str, Any]]] = []
     for item in items:

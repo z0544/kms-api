@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Admin endpoint לטעינת ETL מ-API (אם ריק — disabled)
     admin_token: str | None = None
 
+    # FTS5 — opt-in בלבד (KMS_USE_FTS=1). ברירת מחדל: LIKE כמו תמיד.
+    use_fts: bool = False
+
     @field_validator("data_dir", "db_path", "base_dir", mode="before")
     @classmethod
     def _expand_paths(cls, v):
@@ -75,6 +78,7 @@ SUPPLIERS_FILE: str = settings.suppliers_file
 AGREEMENTS_FILE: str = settings.agreements_file
 
 CORS_ORIGINS: list[str] = settings.cors_origins_list
+USE_FTS: bool = settings.use_fts
 
 UNIQUE_ID_COLUMNS = [
     'מק"ט',

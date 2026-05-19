@@ -14,9 +14,10 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from config import CORS_ORIGINS, DB_PATH
+from config import CORS_ORIGINS, DB_PATH, USE_FTS
 from db_service import (
     MatchMode,
+    get_db,
     get_item_by_entity_id,
     get_items_for_makt,
     get_suppliers_for_makt,
@@ -27,12 +28,13 @@ from db_service import (
 )
 from ai_search import run_ai_search
 from excel_export import build_ai_search_export, build_makt_export, build_search_export
+from fts_service import fts_status
 from logging_setup import get_logger, setup_logging
 
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.1"
+API_VERSION = "0.8.2"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -141,12 +143,20 @@ def gui_home() -> FileResponse:
     description="מחזיר סטטוס, גרסה וקיום של בסיס הנתונים. שימושי ל-load balancer.",
 )
 def health() -> dict[str, Any]:
+    fts_info: dict[str, Any] = {"enabled": USE_FTS}
+    if DB_PATH.exists():
+        try:
+            with get_db() as conn:
+                fts_info.update(fts_status(conn))
+        except sqlite3.Error as exc:
+            fts_info["error"] = str(exc)
     return {
         "status": "ok",
         "version": API_VERSION,
         "database": str(DB_PATH),
         "database_exists": bool(DB_PATH.exists()),
         "smart_search": "local",
+        "fts": fts_info,
     }
 
 

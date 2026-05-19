@@ -17,6 +17,7 @@ from config import (
     ITEMS_FILE,
     SUPPLIERS_FILE,
     UNIQUE_ID_COLUMNS,
+    USE_FTS,
 )
 
 
@@ -111,6 +112,11 @@ def process_data() -> None:
         df_items.to_sql("items", conn, if_exists="replace", index=False)
         df_suppliers.to_sql("suppliers", conn, if_exists="replace", index=False)
         df_agreements.to_sql("agreements", conn, if_exists="replace", index=False)
+        if USE_FTS:
+            from fts_service import rebuild_fts_index
+
+            fts_rows = rebuild_fts_index(conn)
+            print(f"  FTS5 index: {fts_rows} rows")
     finally:
         conn.close()
 
