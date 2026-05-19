@@ -1,31 +1,80 @@
-import os
+"""קונפיגורציה מרכזית – Pydantic BaseSettings.
+
+שומרת על תאימות מלאה לאחור: כל קוד שעשה
+``from config import DB_PATH`` ימשיך לעבוד.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = Path(os.getenv("KMS_DATA_DIR", BASE_DIR / "data"))
-DB_PATH = Path(os.getenv("KMS_DB_PATH", BASE_DIR / "kms_database.db"))
-GEO_MAPPING_PATH = Path(os.getenv("KMS_GEO_MAPPING", DATA_DIR / "geo_mapping.csv"))
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# CORS — רשימת origins מותרים. ברירת מחדל "*" שומרת על התנהגות נוכחית.
-# בפרודקשיין מומלץ להגדיר KMS_CORS_ORIGINS="https://example.com,https://other.com"
-CORS_ORIGINS = [
-    o.strip()
-    for o in os.getenv("KMS_CORS_ORIGINS", "*").split(",")
-    if o.strip()
-]
+_BASE_DIR = Path(__file__).resolve().parent
 
-ITEMS_FILE = os.getenv(
-    "KMS_ITEMS_FILE",
-    "53331_-_שמש_-_פרוט_מקטים-_kms.xlsx",
-)
-SUPPLIERS_FILE = os.getenv(
-    "KMS_SUPPLIERS_FILE",
-    "9028_דוח_ספקים_בעלי_הסכם_פעיל-kms (2).xlsx",
-)
-AGREEMENTS_FILE = os.getenv(
-    "KMS_AGREEMENTS_FILE",
-    "52593_-_שמש_-_הסכמי_מחירים_כללי-kms.xlsx",
-)
+
+class Settings(BaseSettings):
+    """הגדרות מערכת — קוראות מ-env vars עם prefix KMS_*."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="KMS_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    # נתיבי בסיס
+    base_dir: Path = Field(default=_BASE_DIR)
+    data_dir: Path = Field(default=_BASE_DIR / "data")
+    db_path: Path = Field(default=_BASE_DIR / "kms_database.db")
+    geo_mapping: Path | None = None  # מחושב מ-data_dir אם לא הוגדר
+
+    # קבצי Excel
+    items_file: str = "53331_-_שמש_-_פרוט_מקטים-_kms.xlsx"
+    suppliers_file: str = "9028_דוח_ספקים_בעלי_הסכם_פעיל-kms (2).xlsx"
+    agreements_file: str = "52593_-_שמש_-_הסכמי_מחירים_כללי-kms.xlsx"
+
+    # CORS — רשימת origins מותרים (מופרדים בפסיק)
+    cors_origins: str = "*"
+
+    # Logging
+    log_level: str = "INFO"
+    log_file: str | None = None
+
+    # Admin endpoint לטעינת ETL מ-API (אם ריק — disabled)
+    admin_token: str | None = None
+
+    @field_validator("data_dir", "db_path", "base_dir", mode="before")
+    @classmethod
+    def _expand_paths(cls, v):
+        if v is None:
+            return v
+        return Path(str(v)).expanduser()
+
+    @property
+    def geo_mapping_path(self) -> Path:
+        return self.geo_mapping or (self.data_dir / "geo_mapping.csv")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+settings = Settings()
+
+# === תאימות לאחור: שמות המשתנים הישנים נשארים זמינים ===
+BASE_DIR: Path = settings.base_dir
+DATA_DIR: Path = settings.data_dir
+DB_PATH: Path = settings.db_path
+GEO_MAPPING_PATH: Path = settings.geo_mapping_path
+
+ITEMS_FILE: str = settings.items_file
+SUPPLIERS_FILE: str = settings.suppliers_file
+AGREEMENTS_FILE: str = settings.agreements_file
+
+CORS_ORIGINS: list[str] = settings.cors_origins_list
 
 UNIQUE_ID_COLUMNS = [
     'מק"ט',
