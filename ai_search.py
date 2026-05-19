@@ -16,6 +16,9 @@ from db_service import (
     group_items_by_makt,
 )
 from geo_service import find_city_in_text, normalize_city, rank_suppliers
+from logging_setup import get_logger
+
+logger = get_logger("kms.ai_search")
 
 # מילות עזר בעברית — לא משמשות לחיפוש במאגר
 STOPWORDS = frozenset(
@@ -214,6 +217,10 @@ def run_ai_search(
     parsed = parse_ai_query(query)
     terms = parsed.product_terms
     phrase = parsed.search_phrase
+    logger.info(
+        "ai_search: query=%r phrase=%r terms=%s city=%s",
+        query[:80], phrase[:60], terms[:5], parsed.location_normalized,
+    )
 
     if not terms and not phrase:
         return {

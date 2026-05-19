@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
@@ -25,8 +26,12 @@ from db_service import (
 )
 from ai_search import run_ai_search
 from excel_export import build_ai_search_export, build_makt_export, build_search_export
+from logging_setup import get_logger, setup_logging
 
-API_VERSION = "0.7.9"
+setup_logging()
+logger = get_logger("kms.api")
+
+API_VERSION = "0.7.10"
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -50,6 +55,29 @@ app.add_middleware(
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        status = response.status_code if response is not None else 500
+        # לוג רק לבקשות API (לא static), כדי לא להציף
+        path = request.url.path
+        if not path.startswith("/static/"):
+            log_fn = logger.info if status < 400 else logger.warning
+            log_fn(
+                "%s %s -> %s (%.1fms)",
+                request.method,
+                path,
+                status,
+                elapsed_ms,
+            )
 
 
 def _ensure_db() -> None:
