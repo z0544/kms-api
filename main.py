@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from config import CORS_ORIGINS, DB_PATH, USE_FTS
+from config import CORS_ORIGINS, DB_PATH, USE_FTS, settings
 from db_service import (
     MatchMode,
     get_db_dep,
@@ -30,11 +30,12 @@ from ai_search import run_ai_search
 from excel_export import build_ai_search_export, build_makt_export, build_search_export
 from fts_service import fts_status
 from logging_setup import get_logger, setup_logging
+from process_data import process_data
 
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.4"
+API_VERSION = "0.8.5"
 
 DbConn = Annotated[sqlite3.Connection, Depends(get_db_dep)]
 EXPORT_LIMIT = 500
@@ -48,6 +49,7 @@ TAGS_METADATA = [
     {"name": "ai", "description": "חיפוש חכם מקומי בשפה חופשית"},
     {"name": "export", "description": "ייצוא תוצאות לקבצי Excel (XLSX)"},
     {"name": "legacy", "description": "Endpoints ישנים לתאימות לאחור"},
+    {"name": "admin", "description": "פעולות ניהול (דורש אסימון)"},
 ]
 
 app = FastAPI(
@@ -390,6 +392,46 @@ def api_export_ai_search(
     data = build_ai_search_export(result)
     stamp = query.strip().replace(" ", "_")[:24]
     return _xlsx_response(data, f"kms_ai_{stamp}.xlsx")
+
+
+def _verify_admin_token(
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> None:
+    if not settings.admin_token:
+        raise HTTPException(status_code=403, detail="endpoint ניהול מושבת (הגדר KMS_ADMIN_TOKEN)")
+    if not x_admin_token or x_admin_token != settings.admin_token:
+        raise HTTPException(status_code=401, detail="אסימון ניהול לא תקין")
+
+
+@app.post(
+    "/api/admin/reload-data",
+    tags=["admin"],
+    summary="טעינה מחדש של בסיס הנתונים מ-Excel",
+    description="מריץ את process_data.py. דורש header X-Admin-Token תואם ל-KMS_ADMIN_TOKEN.",
+    responses={
+        200: {"description": "ETL הושלם בהצלחה"},
+        401: {"description": "אסימון שגוי"},
+        403: {"description": "endpoint מושבת"},
+        500: {"description": "שגיאה בטעינת קבצים"},
+    },
+)
+def api_admin_reload_data(_: None = Depends(_verify_admin_token)) -> dict[str, Any]:
+    try:
+        stats = process_data()
+        logger.info("admin reload-data: %s", stats)
+        return {
+            "status": "ok",
+            "database": str(DB_PATH),
+            "rows": stats,
+            "fts_enabled": USE_FTS,
+        }
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("admin reload-data failed: %s", exc)
+        raise HTTPException(status_code=500, detail="שגיאה בטעינת הנתונים") from exc
 
 
 # תאימות לאחור

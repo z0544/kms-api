@@ -92,7 +92,7 @@ def _apply_geo_mapping(df_suppliers: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def process_data() -> None:
+def process_data() -> dict[str, int]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     items_path = _resolve_data_file(ITEMS_FILE)
@@ -120,10 +120,16 @@ def process_data() -> None:
     finally:
         conn.close()
 
+    stats = {
+        "items": len(df_items),
+        "suppliers": len(df_suppliers),
+        "agreements": len(df_agreements),
+    }
     print(f"Database created: {DB_PATH}")
-    print(f"  items: {len(df_items)} rows")
-    print(f"  suppliers: {len(df_suppliers)} rows")
-    print(f"  agreements: {len(df_agreements)} rows")
+    print(f"  items: {stats['items']} rows")
+    print(f"  suppliers: {stats['suppliers']} rows")
+    print(f"  agreements: {stats['agreements']} rows")
+    return stats
 
 
 if __name__ == "__main__":
