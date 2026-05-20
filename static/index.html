@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.8.17" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.8.18" />
 </head>
 <body>
   <div class="app">
@@ -52,7 +52,7 @@
       </div>
       <div class="search-tools">
         <button id="toggleCurlBtn" class="btn btn--ghost" type="button" aria-expanded="false">הצג cURL (למפתחים)</button>
-        <p id="searchHint" class="hint">חיפוש "מכיל" מחזיר הרבה מק״טים – לחץ על שורה לפרטים בפאנל השמאלי</p>
+        <p id="searchHint" class="hint">חיפוש "מכיל" מחזיר הרבה מק״טים – לחץ על שורה · הרחב וריאנטים · פרטים וספקים למטה</p>
       </div>
       <div id="curlPanel" class="curl-panel" hidden>
         <div class="curl-header">
@@ -96,8 +96,9 @@
 
     <div id="workspace" class="workspace">
       <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
-        <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">↑ חזרה לתוצאות</button>
+        <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">↑ תוצאות</button>
         <span id="mobileFocusLabel"></span>
+        <button type="button" id="goToDetailsBtn" class="btn btn--ghost btn--small">פרטים ↓</button>
       </div>
       <section class="workspace-main">
         <section class="card panel results-panel">
@@ -163,6 +164,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.8.17"></script>
+  <script src="/static/js/app.js?v=0.8.18"></script>
 </body>
 </html>

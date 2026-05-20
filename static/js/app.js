@@ -20,6 +20,7 @@ const copyCurlBtn = $("copyCurlBtn");
 const mobileFocusBar = $("mobileFocusBar");
 const mobileFocusLabel = $("mobileFocusLabel");
 const backToResultsBtn = $("backToResultsBtn");
+const goToDetailsBtn = $("goToDetailsBtn");
 const exportSearchBtn = $("exportSearchBtn");
 const exportMaktBtn = $("exportMaktBtn");
 const exportAiBtn = $("exportAiBtn");
@@ -408,7 +409,7 @@ function renderSelectionHero(makt, desc, variantCount, supplierCount) {
       <p class="selection-hero-desc">${descCellHtml(desc)}</p>
       <p class="selection-hero-meta">
         ${multi ? `${variantCount} וריאנטים · הספקים זהים לכולם` : "וריאנט יחיד"}
-        ${multi ? " · הרחב וריאנטים בטבלה · לחץ שורה לפרטים" : ""}
+        ${multi ? " · וריאנטים נפתחים בלחיצה · פרטים למטה" : ""}
       </p>
     </div>`;
   bindDescTips(selectionHeroBody);
@@ -919,9 +920,25 @@ async function selectGroupFromTable(groupIdx, rowEl) {
       detailContent.textContent = "לא נמצאו וריאנטים למק״ט זה";
     }
 
-    rowEl?.closest(".makt-group-block")?.classList.add("selected");
+    const block = rowEl?.closest(".makt-group-block");
+    block?.classList.add("selected");
 
-    enterMobileFocus(count > 1 ? `מק״ט ${makt} · בחר וריאנט` : `מק״ט ${makt}`);
+    if (isMobileView()) {
+      const details = block?.querySelector(".inline-variants-details");
+      if (details && count > 1) details.open = true;
+      if (mobileFocusBar) mobileFocusBar.hidden = false;
+      if (mobileFocusLabel) {
+        mobileFocusLabel.textContent =
+          count > 1 ? `מק״ט ${makt} · ${count} וריאנטים` : `מק״ט ${makt}`;
+      }
+      requestAnimationFrame(() => {
+        const target = count > 1 && details ? details : rowEl;
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+
+    enterMobileFocus(`מק״ט ${makt}`);
     scrollToWorkspaceAside();
     scrollSelectionSection(detailPanel);
   } catch (e) {
@@ -1066,6 +1083,14 @@ async function selectVariantData(item, makt, variantCount) {
   detailContent.textContent = "טוען פרטים...";
   await loadSuppliers(makt, variantCount);
   await loadVariantDetail(item, makt);
+  if (isMobileView()) {
+    if (mobileFocusBar) mobileFocusBar.hidden = false;
+    if (mobileFocusLabel) mobileFocusLabel.textContent = `מק״ט ${makt} · וריאנט נבחר`;
+    requestAnimationFrame(() => {
+      detailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return;
+  }
   enterMobileFocus(`מק״ט ${makt}`);
   scrollToWorkspaceAside();
   scrollSelectionSection(detailPanel);
@@ -1159,8 +1184,18 @@ searchInput.addEventListener("keydown", (e) => {
 bindResultsDelegation();
 
 backToResultsBtn?.addEventListener("click", () => {
-  exitMobileFocus();
-  resultsContainer?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (mobileFocusBar) mobileFocusBar.hidden = true;
+  const selected = resultsContainer?.querySelector(".makt-group-block.selected .inline-variants-details[open]")
+    || resultsContainer?.querySelector(".makt-group-block.selected .summary-row")
+    || resultsContainer;
+  selected?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+goToDetailsBtn?.addEventListener("click", () => {
+  if (!selectionContent?.hidden) {
+    workspaceAside?.scrollIntoView({ behavior: "smooth", block: "start" });
+    detailPanel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 });
 
 exportSearchBtn?.addEventListener("click", exportSearchResults);
