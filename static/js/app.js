@@ -408,7 +408,7 @@ function renderSelectionHero(makt, desc, variantCount, supplierCount) {
       <p class="selection-hero-desc">${descCellHtml(desc)}</p>
       <p class="selection-hero-meta">
         ${multi ? `${variantCount} וריאנטים · הספקים זהים לכולם` : "וריאנט יחיד"}
-        ${multi ? " · לחץ על וריאנט לפרטים נוספים" : ""}
+        ${multi ? " · הרחב וריאנטים בטבלה · לחץ שורה לפרטים" : ""}
       </p>
     </div>`;
   bindDescTips(selectionHeroBody);
@@ -416,7 +416,6 @@ function renderSelectionHero(makt, desc, variantCount, supplierCount) {
 
 function enterMobileFocus(label) {
   if (!isMobileView()) return;
-  document.querySelector(".app")?.classList.add("mobile-focus");
   if (mobileFocusBar) mobileFocusBar.hidden = false;
   if (mobileFocusLabel) mobileFocusLabel.textContent = label;
   requestAnimationFrame(() => {
@@ -426,7 +425,6 @@ function enterMobileFocus(label) {
 
 function exitMobileFocus() {
   hideDescFloatTip();
-  document.querySelector(".app")?.classList.remove("mobile-focus");
   if (mobileFocusBar) mobileFocusBar.hidden = true;
 }
 
@@ -1136,7 +1134,6 @@ searchInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") doSearch();
 });
 
-bindDrawerControls();
 bindResultsDelegation();
 
 backToResultsBtn?.addEventListener("click", () => {

@@ -1413,39 +1413,19 @@ body {
     font-size: 0.7rem;
   }
 
-  /* מצב מיקוד אחרי בחירת מק״ט/וריאנט */
-  .app.mobile-focus .search-card,
-  .app.mobile-focus .ai-search-details {
-    display: none;
-  }
-
-  .app.mobile-focus .workspace-main {
-    display: none;
-  }
-
-  .app.mobile-focus .workspace-aside {
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-
-  .app.mobile-focus .panel-header {
-    margin-bottom: 0;
-  }
-
   .mobile-focus-bar {
     display: none;
+    grid-column: 1 / -1;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.5rem 0.65rem;
-    margin-bottom: 0.5rem;
     background: var(--primary-soft);
     border: 1px solid #99f6e4;
     border-radius: 8px;
   }
 
-  .app.mobile-focus .mobile-focus-bar {
+  .mobile-focus-bar:not([hidden]) {
     display: flex;
   }
 
@@ -1455,14 +1435,20 @@ body {
     color: var(--primary-hover);
   }
 
-  .app.mobile-focus .variants-panel.collapsed-mobile .variants-drawer-body {
-    display: none;
+  .workspace-aside {
+    order: 3;
   }
 
-  .app.mobile-focus .variants-panel.collapsed-mobile .variants-drawer-header h3::after {
-    content: " · נבחר וריאנט";
-    font-weight: 500;
-    font-size: 0.8rem;
+  .workspace-main {
+    order: 2;
+  }
+
+  .mobile-focus-bar {
+    order: 1;
+  }
+
+  .inline-variants-panel {
+    max-height: min(50vh, 18rem);
   }
 }
 

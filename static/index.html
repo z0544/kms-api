@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.8.13" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.8.14" />
 </head>
 <body>
   <div class="app">
@@ -95,6 +95,10 @@
     </details>
 
     <div id="workspace" class="workspace">
+      <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
+        <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">↑ חזרה לתוצאות</button>
+        <span id="mobileFocusLabel"></span>
+      </div>
       <section class="workspace-main">
         <section class="card panel results-panel">
           <div class="panel-header">
@@ -105,10 +109,6 @@
             </div>
           </div>
           <p class="results-hint">לחץ על שורה לפרטים וספקים · הרחב וריאנטים בשורה (אם יש)</p>
-          <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
-            <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
-            <span id="mobileFocusLabel"></span>
-          </div>
           <div id="resultsContainer" class="results-scroll">
             <p class="empty-state">בצע חיפוש להצגת תוצאות</p>
           </div>
@@ -163,6 +163,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.8.13"></script>
+  <script src="/static/js/app.js?v=0.8.14"></script>
 </body>
 </html>
