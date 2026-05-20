@@ -245,6 +245,7 @@ def get_supplier_counts_for_makts(makts: list[str]) -> dict[str, int]:
         SELECT TRIM(CAST(a.[מק"ט] AS TEXT)) AS makt_key,
                COUNT(DISTINCT a.[מספר ספק]) AS cnt
         FROM agreements a
+        INNER JOIN suppliers s ON a.[מספר ספק] = s.[מספר ספק]
         WHERE TRIM(CAST(a.[מק"ט] AS TEXT)) IN ({placeholders})
         GROUP BY makt_key
     """
