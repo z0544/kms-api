@@ -984,6 +984,24 @@ body {
   background: #fff;
 }
 
+/* טבלת וריאנטים — נפרדת ממצב כרטיסים של טבלת התוצאות */
+.variants-table--compact {
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.variants-table--compact th,
+.variants-table--compact td {
+  padding: 0.35rem 0.45rem;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.variants-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .summary-table tbody tr.summary-row {
   cursor: pointer;
 }
@@ -1448,7 +1466,78 @@ body {
   }
 
   .inline-variants-panel {
-    max-height: min(50vh, 18rem);
+    max-height: none;
+    overflow: visible;
+  }
+
+  .inline-variants-panel .variants-table-wrap,
+  .ai-variants-section .variants-table-wrap {
+    max-height: min(58vh, 26rem);
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+
+  .variants-inline-row td.variants-inline-cell {
+    display: block !important;
+    width: 100%;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .variants-inline-row td.variants-inline-cell::before {
+    display: none !important;
+  }
+
+  /* וריאנטים כרשימת כרטיסים — רק בתוך אזור הוריאנטים */
+  .variants-table-wrap .variants-table--compact thead {
+    display: none;
+  }
+
+  .variants-table-wrap .variants-table--compact tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .variants-table-wrap .variants-table--compact tbody tr.variant-table-row {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.35rem 0.45rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .variants-table-wrap .variants-table--compact td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.35rem 0;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+  }
+
+  .variants-table-wrap .variants-table--compact td:last-child {
+    border-bottom: none;
+  }
+
+  .variants-table-wrap .variants-table--compact td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .variants-table-wrap .variants-table--compact td.num-cell[data-label="#"]::before {
+    content: "וריאנט";
+  }
+
+  .ai-variants-section .variants-table-wrap {
+    margin-top: 0.25rem;
   }
 }
 

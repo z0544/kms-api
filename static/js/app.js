@@ -471,7 +471,7 @@ function renderVariantsTable(variants, groupIdx, makt, supplierCount) {
 
   return `
     <div class="table-wrap variants-table-wrap">
-      <table class="data-table variants-table table--cards-mobile">
+      <table class="data-table variants-table variants-table--compact">
         <thead>
           <tr>
             <th>#</th>
