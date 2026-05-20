@@ -190,10 +190,10 @@ body {
   align-items: start;
 }
 
-/* פריסת עבודה: תוצאות | פרטים דביקים */
+/* פריסת עבודה: תוצאות (רחב) | פרטים וספקים */
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  grid-template-columns: minmax(0, 2.4fr) minmax(220px, 300px);
   gap: 1rem;
   align-items: start;
 }
@@ -729,7 +729,7 @@ body {
 }
 
 .results-scroll {
-  max-height: min(28vh, 260px);
+  max-height: min(72vh, calc(100vh - 11rem));
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -918,9 +918,70 @@ body {
 }
 
 .summary-table-wrap {
-  max-height: 380px;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+}
+
+.summary-table .makt-group-block .summary-row.selected {
+  background: #f0fdfa;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.makt-group-block.selected .variants-inline-row {
+  background: #fafbfc;
+}
+
+.variants-inline-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfc;
+}
+
+.inline-variants-details {
+  margin: 0;
+}
+
+.inline-variants-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-hover);
+  user-select: none;
+}
+
+.inline-variants-summary::-webkit-details-marker {
+  display: none;
+}
+
+.inline-variants-summary::marker {
+  content: "";
+}
+
+.inline-variants-chevron {
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+
+.inline-variants-details[open] .inline-variants-chevron {
+  transform: rotate(90deg);
+}
+
+.inline-variants-panel {
+  padding: 0 0.5rem 0.55rem;
+  max-height: min(40vh, 22rem);
+  overflow: auto;
+}
+
+.inline-variants-panel .variants-table-wrap {
   border: 1px solid var(--border);
   border-radius: 8px;
+  background: #fff;
 }
 
 .summary-table tbody tr.summary-row {
@@ -938,7 +999,7 @@ body {
 
 .summary-table .desc-cell {
   position: relative;
-  max-width: 220px;
+  max-width: min(36vw, 420px);
 }
 
 .desc-tip {

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/style.css?v=0.8.12" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.8.13" />
 </head>
 <body>
   <div class="app">
@@ -104,7 +104,7 @@
               <span id="resultsCount" class="count-pill">0</span>
             </div>
           </div>
-          <p class="results-hint">לחץ על שורה — פרטים וספקים בפאנל השמאלי</p>
+          <p class="results-hint">לחץ על שורה לפרטים וספקים · הרחב וריאנטים בשורה (אם יש)</p>
           <div id="mobileFocusBar" class="mobile-focus-bar" hidden>
             <button type="button" id="backToResultsBtn" class="btn btn--ghost btn--small">← חזרה לתוצאות</button>
             <span id="mobileFocusLabel"></span>
@@ -124,14 +124,6 @@
         <div id="selectionContent" class="selection-content" hidden>
           <section class="card panel selection-hero" id="selectionHero">
             <div id="selectionHeroBody"></div>
-          </section>
-
-          <section class="card panel variants-panel" id="variantsPanel" hidden>
-            <div class="variants-drawer-header">
-              <h3 id="drawerTitle">וריאנטים</h3>
-              <button type="button" id="closeDrawerBtn" class="btn btn--ghost btn--small">סגור</button>
-            </div>
-            <div id="variantsDrawerBody" class="variants-drawer-body"></div>
           </section>
 
           <section class="card panel" id="detailPanel">
@@ -171,6 +163,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/static/js/app.js?v=0.8.12"></script>
+  <script src="/static/js/app.js?v=0.8.13"></script>
 </body>
 </html>

@@ -30,7 +30,6 @@ const aiStatusBadge = $("aiStatusBadge");
 const selectionPlaceholder = $("selectionPlaceholder");
 const selectionContent = $("selectionContent");
 const selectionHeroBody = $("selectionHeroBody");
-const variantsPanel = $("variantsPanel");
 const workspaceAside = $("workspaceAside");
 const workspaceEl = $("workspace");
 const aiSearchDetails = document.querySelector(".ai-search-details");
@@ -38,10 +37,8 @@ const aiSearchDetails = document.querySelector(".ai-search-details");
 const SUPPLIER_PHONE_KEYS = ["נייד ספק", "טלפון עבודה ספק", "נייח ספק"];
 const EXPORT_SEARCH_LIMIT = 500;
 
-const COMPACT_TABLE_THRESHOLD = 8;
 const MAX_VARIANTS_PREVIEW = 100;
 
-let drawerBound = false;
 let resultsDelegationBound = false;
 
 let lastSearch = { q: "", match: "contains", field: "all" };
@@ -430,7 +427,6 @@ function enterMobileFocus(label) {
 function exitMobileFocus() {
   hideDescFloatTip();
   document.querySelector(".app")?.classList.remove("mobile-focus");
-  variantsPanel?.classList.remove("collapsed-mobile");
   if (mobileFocusBar) mobileFocusBar.hidden = true;
 }
 
@@ -451,14 +447,6 @@ function supplierIndicatorHtml(count) {
     return `<span class="sup-indicator sup-indicator--yes" title="${esc(label)}">${n}</span>`;
   }
   return '<span class="sup-indicator sup-indicator--none" title="אין ספקים מורשים">אין</span>';
-}
-
-function bindDrawerControls() {
-  if (drawerBound) return;
-  drawerBound = true;
-  $("closeDrawerBtn")?.addEventListener("click", () => {
-    if (variantsPanel) variantsPanel.hidden = true;
-  });
 }
 
 function renderVariantsTable(variants, groupIdx, makt, supplierCount) {
@@ -749,8 +737,46 @@ async function doAiSearch() {
 }
 
 function clearSelection() {
-  document.querySelectorAll(".summary-row.selected, .variant-table-row.selected").forEach((el) => {
-    el.classList.remove("selected");
+  document
+    .querySelectorAll(".makt-group-block.selected, .summary-row.selected, .variant-table-row.selected")
+    .forEach((el) => {
+      el.classList.remove("selected");
+    });
+}
+
+function renderInlineVariantsRow(group, groupIdx, makt, variants, count) {
+  if (count <= 1) return "";
+  const preview = variants.slice(0, MAX_VARIANTS_PREVIEW);
+  const more = variants.length - preview.length;
+  const tableHtml = renderVariantsTable(preview, groupIdx, makt, group.supplier_count);
+  const moreHint =
+    more > 0
+      ? `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`
+      : "";
+  return `
+    <tr class="variants-inline-row">
+      <td colspan="6" class="variants-inline-cell">
+        <details class="inline-variants-details">
+          <summary class="inline-variants-summary">
+            <span class="inline-variants-chevron" aria-hidden="true">▸</span>
+            <span>${count} וריאנטים · לחץ להרחבה</span>
+          </summary>
+          <div class="inline-variants-panel">${tableHtml}${moreHint}</div>
+        </details>
+      </td>
+    </tr>`;
+}
+
+function bindInlineVariantRows(groups) {
+  groups.forEach((group, idx) => {
+    const variants = group.variants || [];
+    if (variants.length <= 1) return;
+    const block = resultsContainer.querySelector(`tbody.makt-group-block[data-group-idx="${idx}"]`);
+    if (!block) return;
+    const makt = getMakt(group);
+    block.querySelectorAll(".variant-table-row").forEach((row) => {
+      bindVariantRow(row, variants, makt, variants.length);
+    });
   });
 }
 
@@ -759,6 +785,7 @@ function bindResultsDelegation() {
   resultsDelegationBound = true;
 
   resultsContainer.addEventListener("click", (e) => {
+    if (e.target.closest(".inline-variants-details, .variant-table-row")) return;
     const row = e.target.closest(".summary-row");
     if (!row || !resultsContainer.contains(row)) return;
     selectGroupFromTable(Number(row.dataset.groupIdx), row);
@@ -775,9 +802,10 @@ function bindResultsDelegation() {
 }
 
 function bindVariantRow(row, variants, makt, variantCount) {
-  const pick = () => {
-    const tbody = row.closest("tbody");
-    tbody?.querySelectorAll(".variant-table-row").forEach((r) => r.classList.remove("selected"));
+  const pick = (e) => {
+    e?.stopPropagation();
+    const block = row.closest(".makt-group-block");
+    block?.querySelectorAll(".variant-table-row").forEach((r) => r.classList.remove("selected"));
     row.classList.add("selected");
     const v = variants[Number(row.dataset.variantIdx)];
     if (v) selectVariantData(v, makt, variantCount);
@@ -795,9 +823,9 @@ function findGroup(makt) {
   return searchState.groups.find((g) => getMakt(g) === makt);
 }
 
-/** טבלת סיכום – כשיש הרבה מק"טים (חיפוש "מכיל") */
+/** טבלת סיכום – וריאנטים ב-collapse בתוך השורה */
 function renderCompactTable(groups) {
-  const rows = groups
+  const blocks = groups
     .map((group, idx) => {
       const makt = getMakt(group);
       const variants = group.variants || [];
@@ -806,14 +834,17 @@ function renderCompactTable(groups) {
       const zacai = variants[0]?.["סוג זכאי"] || "—";
       const supCount = group.supplier_count ?? 0;
       return `
-        <tr class="summary-row" data-group-idx="${idx}" tabindex="0">
-          <td data-label="מק״ט"><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
-          <td class="sup-cell" data-label="ספקים">${supplierIndicatorHtml(supCount)}</td>
-          <td class="desc-cell" data-label="תיאור">${descCellHtml(desc)}</td>
-          <td data-label="סוג זכאי">${esc(zacai)}</td>
-          <td class="num-cell" data-label="וריאנטים">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
-          <td class="num-cell" data-label="טווח סכום">${esc(amountRange(variants))}</td>
-        </tr>`;
+        <tbody class="makt-group-block" data-group-idx="${idx}">
+          <tr class="summary-row" data-group-idx="${idx}" tabindex="0">
+            <td data-label="מק״ט"><span class="makt-badge makt-badge--sm">${esc(makt)}</span></td>
+            <td class="sup-cell" data-label="ספקים">${supplierIndicatorHtml(supCount)}</td>
+            <td class="desc-cell" data-label="תיאור">${descCellHtml(desc)}</td>
+            <td data-label="סוג זכאי">${esc(zacai)}</td>
+            <td class="num-cell" data-label="וריאנטים">${count > 1 ? `<span class="pill">${count} וריאנטים</span>` : "1"}</td>
+            <td class="num-cell" data-label="טווח סכום">${esc(amountRange(variants))}</td>
+          </tr>
+          ${renderInlineVariantsRow(group, idx, makt, variants, count)}
+        </tbody>`;
     })
     .join("");
 
@@ -830,39 +861,13 @@ function renderCompactTable(groups) {
             <th>טווח סכום</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        ${blocks}
       </table>
     </div>`;
 
-  bindDrawerControls();
   bindResultsDelegation();
-  if (variantsPanel) variantsPanel.hidden = true;
+  bindInlineVariantRows(groups);
   bindDescTips(resultsContainer);
-}
-
-function renderVariantsInDrawer(group, makt, groupIdx) {
-  const panel = variantsPanel || $("variantsPanel");
-  const body = $("variantsDrawerBody");
-  const title = $("drawerTitle");
-  if (!panel || !body) return;
-
-  const variants = group.variants || [];
-  title.textContent = `מק״ט ${makt} · ${variants.length} וריאנטים`;
-
-  const preview = variants.slice(0, MAX_VARIANTS_PREVIEW);
-  const more = variants.length - preview.length;
-
-  body.innerHTML = renderVariantsTable(preview, groupIdx, makt, group.supplier_count);
-  if (more > 0) {
-    body.innerHTML += `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`;
-  }
-
-  panel.hidden = false;
-  panel.classList.remove("collapsed-mobile");
-
-  body.querySelectorAll(".variant-table-row").forEach((row) => {
-    bindVariantRow(row, variants, makt, variants.length);
-  });
 }
 
 async function selectGroupFromTable(groupIdx, rowEl) {
@@ -882,12 +887,6 @@ async function selectGroupFromTable(groupIdx, rowEl) {
     renderSelectionHero(makt, desc, count, group.supplier_count ?? 0);
     setExportMakt(makt, null);
 
-    if (count > 1) {
-      renderVariantsInDrawer(group, makt, groupIdx);
-    } else if (variantsPanel) {
-      variantsPanel.hidden = true;
-    }
-
     detailContent.className = "detail-empty";
     detailContent.textContent = "טוען פרטים...";
 
@@ -900,64 +899,16 @@ async function selectGroupFromTable(groupIdx, rowEl) {
       detailContent.textContent = "לא נמצאו וריאנטים למק״ט זה";
     }
 
+    rowEl?.closest(".makt-group-block")?.classList.add("selected");
+
     enterMobileFocus(count > 1 ? `מק״ט ${makt} · בחר וריאנט` : `מק״ט ${makt}`);
     scrollToWorkspaceAside();
-    if (count > 1 && variantsPanel && !variantsPanel.hidden) {
-      scrollSelectionSection(variantsPanel);
-    } else {
-      scrollSelectionSection(detailPanel);
-    }
+    scrollSelectionSection(detailPanel);
   } catch (e) {
     detailContent.className = "detail-empty";
     detailContent.textContent = "שגיאה בטעינת פרטים";
     showToast(e.message || "שגיאה בטעינת פרטים", true);
   }
-}
-
-/** Collapse – רק כשמק"ט אחד עם כמה וריאנטים */
-function renderSingleMaktCollapse(group) {
-  const makt = getMakt(group);
-  const variants = group.variants || [];
-  const count = variants.length;
-
-  resultsContainer.innerHTML = `
-    <p class="results-mode-hint">מק״ט ${esc(makt)} · ${count} וריאנטים (שילובי רמות וסכומים)</p>
-    <div class="group-card expanded" data-group-idx="0">
-      <button type="button" class="group-header open" data-action="toggle-variants">
-        <span class="chevron">▾</span>
-        <div class="group-main">
-          <span class="makt-badge">${esc(makt)}</span>
-          <span class="group-title">${descCellHtml(group["תיאור פריט"] || variants[0]?.["תיאור פריט"])}</span>
-        </div>
-        <span class="variant-badge">${count} וריאנטים</span>
-        ${supplierIndicatorHtml(group.supplier_count ?? 0)}
-      </button>
-      <div class="variant-list" id="variantListSingle"></div>
-    </div>`;
-
-  const list = $("variantListSingle");
-  list.innerHTML = renderVariantsTable(
-    variants.slice(0, MAX_VARIANTS_PREVIEW),
-    0,
-    makt,
-    group.supplier_count
-  );
-  if (variants.length > MAX_VARIANTS_PREVIEW) {
-    list.innerHTML += `<p class="more-hint">מוצגים ${MAX_VARIANTS_PREVIEW} מתוך ${variants.length}</p>`;
-  }
-
-  list.querySelectorAll(".variant-table-row").forEach((row) => {
-    bindVariantRow(row, variants, makt, count);
-  });
-
-  resultsContainer.querySelector('[data-action="toggle-variants"]')?.addEventListener("click", (e) => {
-    const btn = e.currentTarget;
-    const listEl = $("variantListSingle");
-    const open = listEl.classList.toggle("is-collapsed");
-    btn.querySelector(".chevron").textContent = open ? "▸" : "▾";
-  });
-  bindDescTips(resultsContainer);
-  bindResultsDelegation();
 }
 
 function renderResults(data) {
@@ -970,17 +921,6 @@ function renderResults(data) {
 
   if (!items.length) {
     resultsContainer.innerHTML = '<p class="empty-state">לא נמצאו תוצאות</p>';
-    updateExportButtons();
-    return;
-  }
-
-  if (groups.length > COMPACT_TABLE_THRESHOLD) {
-    renderCompactTable(groups);
-    return;
-  }
-
-  if (groups.length === 1 && (groups[0].variant_count || groups[0].variants?.length) > 1) {
-    renderSingleMaktCollapse(groups[0]);
     updateExportButtons();
     return;
   }
@@ -1106,9 +1046,6 @@ async function selectVariantData(item, makt, variantCount) {
   detailContent.textContent = "טוען פרטים...";
   await loadSuppliers(makt, variantCount);
   await loadVariantDetail(item, makt);
-  if (variantsPanel && variantCount > 1 && isMobileView()) {
-    variantsPanel.classList.add("collapsed-mobile");
-  }
   enterMobileFocus(`מק״ט ${makt}`);
   scrollToWorkspaceAside();
   scrollSelectionSection(detailPanel);
