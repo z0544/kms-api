@@ -256,6 +256,12 @@ body {
 .selection-hero {
   background: var(--surface);
   border-color: var(--border);
+  flex-shrink: 0;
+}
+
+.selection-content #detailPanel,
+.selection-content .suppliers-panel {
+  flex-shrink: 0;
 }
 
 .selection-hero-top {
@@ -286,20 +292,31 @@ body {
 .variants-panel {
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 .variants-panel .variants-drawer-header {
   padding: 0.65rem 0.85rem;
   margin: 0;
+  flex-shrink: 0;
 }
 
 .variants-panel .variants-drawer-body {
-  max-height: 110px;
+  flex: 1 1 auto;
+  min-height: 10rem;
+  max-height: min(45vh, 26rem);
+  overflow-x: auto;
   overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .suppliers-table-wrap {
-  max-height: 130px;
+  max-height: min(32vh, 16rem);
+  overflow-y: auto;
 }
 
 .selection-content .panel {
@@ -312,7 +329,7 @@ body {
 }
 
 .selection-content .detail-grid {
-  max-height: 150px;
+  max-height: min(28vh, 14rem);
   overflow-y: auto;
   gap: 0.35rem;
 }
