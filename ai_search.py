@@ -293,7 +293,7 @@ def run_ai_search(
                 or (g.get("variants") or [{}])[0].get("תיאור פריט"),
                 "variant_count": g.get("variant_count", 0),
                 "supplier_count": len(ranked),
-                "variants": g.get("variants", [])[:5],
+                "variants": g.get("variants") or [],
                 "suppliers": ranked,
                 "nearest_supplier": nearest,
                 "supplier_note": (

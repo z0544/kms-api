@@ -591,6 +591,26 @@ function renderProximityCell(s, nearest) {
   return "—";
 }
 
+function renderAiVariantsBlock(r, idx) {
+  const variants = r.variants || [];
+  const varCount = r.variant_count || variants.length;
+  if (varCount <= 1 && variants.length <= 1) return "";
+  const makt = r['מק"ט'];
+  const preview = variants.slice(0, MAX_VARIANTS_PREVIEW);
+  const shown = preview.length;
+  const total = Math.max(varCount, variants.length);
+  const moreHint =
+    total > shown
+      ? `<p class="more-hint">מוצגים ${shown} מתוך ${total} וריאנטים</p>`
+      : "";
+  return `
+    <div class="ai-variants-section">
+      <h4 class="ai-panel-subtitle">${total} וריאנטים</h4>
+      ${renderVariantsTable(preview, idx, makt, r.supplier_count)}
+      ${moreHint}
+    </div>`;
+}
+
 function renderAiSupplierRows(suppliers, userLocation) {
   const rows = applyNearestFallback(suppliers, userLocation);
   if (!rows.length) {
@@ -664,7 +684,9 @@ function renderAiResults(data) {
             </span>
           </summary>
           <div class="ai-makt-panel" id="ai-makt-panel-${idx}">
+            ${renderAiVariantsBlock(r, idx)}
             ${note}
+            <h4 class="ai-panel-subtitle">ספקים מורשים</h4>
             <div class="ai-suppliers-wrap table-wrap">
           <table class="data-table ai-suppliers-table">
             <thead>

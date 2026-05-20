@@ -1614,6 +1614,29 @@ body {
   background: #fafbfc;
 }
 
+.ai-panel-subtitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary-hover);
+  margin: 0.55rem 0 0.35rem;
+}
+
+.ai-variants-section {
+  margin-bottom: 0.35rem;
+}
+
+.ai-variants-section .variants-table-wrap {
+  max-height: min(40vh, 20rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-makt-panel .ai-panel-subtitle:first-child {
+  margin-top: 0.45rem;
+}
+
 .ai-makt-panel .hint-inline {
   margin: 0.5rem 0 0.35rem;
   font-size: 0.78rem;
