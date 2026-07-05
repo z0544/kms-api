@@ -42,7 +42,58 @@ const MAX_VARIANTS_PREVIEW = 100;
 
 let resultsDelegationBound = false;
 
-let lastSearch = { q: "", match: "contains", field: "all" };
+let lastSearch = { q: "", match: "contains", field: "all", limit: 200, grouped: true };
+
+const SEARCH_MATCH_VALUES = new Set(["contains", "startswith", "endswith", "exact"]);
+const SEARCH_FIELD_VALUES = new Set(["all", "מקט", "תיאור", "זכאי", "ספק", "entity_id"]);
+
+function readSearchParamsFromUrl(search = window.location.search) {
+  const params = new URLSearchParams(search);
+  const q = (params.get("q") || "").trim();
+  if (!q) return null;
+
+  const match = params.get("match") || "contains";
+  const field = params.get("field") || "all";
+  let limit = parseInt(params.get("limit") || "200", 10);
+  if (!Number.isFinite(limit) || limit < 1) limit = 200;
+  if (limit > 500) limit = 500;
+
+  const groupedRaw = (params.get("grouped") ?? "true").toLowerCase();
+  const grouped = !["false", "0", "no"].includes(groupedRaw);
+
+  return {
+    q,
+    match: SEARCH_MATCH_VALUES.has(match) ? match : "contains",
+    field: SEARCH_FIELD_VALUES.has(field) ? field : "all",
+    limit,
+    grouped,
+  };
+}
+
+function applySearchParamsToForm(params) {
+  searchInput.value = params.q;
+  matchSelect.value = params.match;
+  fieldSelect.value = params.field;
+  fieldSelect.dispatchEvent(new Event("change"));
+}
+
+function buildSearchQueryParams(params = lastSearch) {
+  return new URLSearchParams({
+    q: params.q,
+    match: params.match,
+    field: params.field,
+    limit: String(params.limit ?? 200),
+    grouped: params.grouped === false ? "false" : "true",
+  });
+}
+
+function syncSearchUrl(params, { replace = true, push = false } = {}) {
+  if (!params?.q) return;
+  const newUrl = `/?${buildSearchQueryParams(params)}`;
+  const state = { search: params };
+  if (push) history.pushState(state, "", newUrl);
+  else if (replace) history.replaceState(state, "", newUrl);
+}
 let searchState = { groups: [], items: [] };
 let exportState = { makt: null, entityId: null };
 let lastAiSearch = { query: "", count: 0 };
@@ -57,7 +108,7 @@ const VARIANT_KEYS = [
 ];
 
 async function api(path) {
-  const res = await fetch(path);
+  const res = await fetch(path, { headers: { Accept: "application/json" } });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "שגיאה בשרת");
@@ -502,14 +553,7 @@ function amountRange(variants) {
 }
 
 function buildApiUrl() {
-  const params = new URLSearchParams({
-    q: lastSearch.q,
-    match: lastSearch.match,
-    field: lastSearch.field,
-    limit: "200",
-    grouped: "true",
-  });
-  return `${window.location.origin}/api/items?${params}`;
+  return `${window.location.origin}/api/items?${buildSearchQueryParams(lastSearch)}`;
 }
 
 function updateCurl() {
@@ -1096,15 +1140,24 @@ async function selectVariantData(item, makt, variantCount) {
   scrollSelectionSection(detailPanel);
 }
 
-async function doSearch() {
+async function doSearch(options = {}) {
   const q = searchInput.value.trim();
   if (!q) {
     showToast("הזן ערך לחיפוש", true);
     return;
   }
 
-  lastSearch = { q, match: matchSelect.value, field: fieldSelect.value };
+  lastSearch = {
+    q,
+    match: matchSelect.value,
+    field: fieldSelect.value,
+    limit: lastSearch.limit ?? 200,
+    grouped: lastSearch.grouped !== false,
+  };
   updateCurl();
+  if (!options.skipUrlSync) {
+    syncSearchUrl(lastSearch, { replace: !options.pushUrl, push: Boolean(options.pushUrl) });
+  }
   hideDescFloatTip();
   exitMobileFocus();
   setAiSearchMode(false);
@@ -1121,20 +1174,14 @@ async function doSearch() {
   setExportMakt(null);
   clearSelection();
 
-  const params = new URLSearchParams({
-    q,
-    match: lastSearch.match,
-    field: lastSearch.field,
-    limit: "200",
-    grouped: "true",
-  });
+  const params = buildSearchQueryParams(lastSearch);
 
   try {
     const data = await api(`/api/items?${params}`);
     renderResults(data);
 
-    if (data.count >= 200) {
-      showToast("מוצגות 200 תוצאות ראשונות – צמצם חיפוש לדיוק");
+    if (data.count >= lastSearch.limit) {
+      showToast(`מוצגות ${lastSearch.limit} תוצאות ראשונות – צמצם חיפוש לדיוק`);
     }
 
     const groups = data.groups || [];
@@ -1149,6 +1196,15 @@ async function doSearch() {
   } finally {
     searchBtn.disabled = false;
   }
+}
+
+async function initSearchFromUrl() {
+  const params = readSearchParamsFromUrl();
+  if (!params) return;
+  applySearchParamsToForm(params);
+  lastSearch = { ...params };
+  updateCurl();
+  await doSearch({ skipUrlSync: true });
 }
 
 toggleCurlBtn.addEventListener("click", () => {
@@ -1176,9 +1232,18 @@ fieldSelect.addEventListener("change", () => {
     : "מק״ט, תיאור, סוג זכאי...";
 });
 
-searchBtn.addEventListener("click", doSearch);
+searchBtn.addEventListener("click", () => doSearch({ pushUrl: true }));
 searchInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") doSearch();
+  if (e.key === "Enter") doSearch({ pushUrl: true });
+});
+
+window.addEventListener("popstate", () => {
+  const params = readSearchParamsFromUrl();
+  if (!params) return;
+  applySearchParamsToForm(params);
+  lastSearch = { ...params };
+  updateCurl();
+  doSearch({ skipUrlSync: true });
 });
 
 bindResultsDelegation();
@@ -1210,3 +1275,4 @@ aiQueryInput?.addEventListener("keydown", (e) => {
 checkHealth();
 updateExportButtons();
 updateCurl();
+initSearchFromUrl();

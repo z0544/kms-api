@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
@@ -35,7 +35,7 @@ from process_data import process_data
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.18"
+API_VERSION = "0.8.19"
 
 DbConn = Annotated[sqlite3.Connection, Depends(get_db_dep)]
 EXPORT_LIMIT = 500
@@ -211,6 +211,12 @@ def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="שגיאה בגישה לבסיס הנתונים") from exc
 
 
+def _browser_wants_html(request: Request) -> bool:
+    """דפדפן שפותח את הקישור ישירות — מפנה לממשק עם אותם פרמטרים."""
+    accept = (request.headers.get("accept") or "").lower()
+    return "text/html" in accept and "application/json" not in accept
+
+
 @app.get(
     "/api/items",
     tags=["items"],
@@ -219,10 +225,13 @@ def api_ai_search(body: AiSearchRequest) -> dict[str, Any]:
         "חיפוש פריטים לפי שדה ומצב התאמה.\n"
         "**field** תומך ב: `all`, `מקט`, `תיאור`, `זכאי`, `ספק`, `entity_id`.\n"
         "**match** תומך ב: `contains` (ברירת מחדל), `exact`, `startswith`, `endswith`.\n"
-        "כאשר `grouped=true` (ברירת מחדל) — מקבץ וריאנטים לפי מק״ט עם supplier_count."
+        "כאשר `grouped=true` (ברירת מחדל) — מקבץ וריאנטים לפי מק״ט עם supplier_count.\n"
+        "פתיחת הקישור בדפדפן מציגה את הממשק עם אותם פילטרים."
     ),
+    response_model=None,
 )
 def api_list_items(
+    request: Request,
     q: str = Query(
         ...,
         min_length=1,
@@ -239,7 +248,12 @@ def api_list_items(
     ),
     limit: int = Query(default=100, ge=1, le=500, description="מגבלת תוצאות"),
     grouped: bool = Query(default=True, description="קיבוץ וריאנטים לפי מק\"ט"),
-) -> dict[str, Any]:
+):
+    if _browser_wants_html(request):
+        query = request.url.query
+        target = f"/?{query}" if query else "/"
+        return RedirectResponse(url=target, status_code=307)
+
     _ensure_db()
     try:
         mode = parse_match_mode(match)
