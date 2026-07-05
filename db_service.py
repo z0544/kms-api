@@ -7,7 +7,8 @@ from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Generator
 
-from config import DB_PATH, REFUND_NOTE
+from config import DB_PATH, ENTITY_ID_PARTS, REFUND_NOTE
+from entity_id import legacy_entity_id_to_new, parse_legacy_entity_id
 from utils import clean_record
 
 SEARCH_FIELDS: dict[str, list[str]] = {
@@ -63,6 +64,15 @@ ITEM_LIST_COLUMNS = [
     "אחוז לחריגה",
     "סכום",
 ]
+
+ACTIVE_ITEMS_WHERE = "COALESCE(is_deleted, 0) = 0"
+ACTIVE_ITEMS_WHERE_I = "COALESCE(i.is_deleted, 0) = 0"
+
+
+def _active_where(extra: str = "") -> str:
+    if extra:
+        return f"({ACTIVE_ITEMS_WHERE}) AND ({extra})"
+    return ACTIVE_ITEMS_WHERE
 
 
 @contextmanager
@@ -161,7 +171,7 @@ def search_items_by_supplier(
         FROM items i
         INNER JOIN agreements a ON {_makt_join_sql()}
         INNER JOIN suppliers s ON a.[מספר ספק] = s.[מספר ספק]
-        WHERE {supplier_cond}
+        WHERE {ACTIVE_ITEMS_WHERE_I} AND {supplier_cond}
         LIMIT ?
     """
     with get_db() as conn:
@@ -182,7 +192,7 @@ def search_items(
     select_cols = _select_items_sql()
     with get_db() as conn:
         rows = conn.execute(
-            f"SELECT {select_cols} FROM items WHERE {where_sql} LIMIT ?",
+            f"SELECT {select_cols} FROM items WHERE {_active_where(where_sql)} LIMIT ?",
             (*params, limit),
         ).fetchall()
     return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
@@ -296,23 +306,51 @@ def variant_summary(item: dict[str, Any]) -> str:
     return " · ".join(parts) if parts else "ברירת מחדל"
 
 
+def _fetch_item_row(conn: sqlite3.Connection, entity_id: str) -> sqlite3.Row | None:
+    return conn.execute(
+        f"SELECT * FROM items WHERE entity_id = ? AND {_active_where()}",
+        (entity_id,),
+    ).fetchone()
+
+
+def _fetch_item_by_legacy_parts(conn: sqlite3.Connection, parts: dict[str, str]) -> sqlite3.Row | None:
+    where_parts = " AND ".join(f"[{col}] = ?" for col in LEGACY_LOOKUP_PARTS)
+    values = [parts[col] for col in LEGACY_LOOKUP_PARTS]
+    return conn.execute(
+        f"SELECT * FROM items WHERE {_active_where(where_parts)} LIMIT 1",
+        values,
+    ).fetchone()
+
+
+LEGACY_LOOKUP_PARTS = ENTITY_ID_PARTS + ["אחוז לחריגה"]
+
+
+def _enrich_item(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
+    item = clean_record(_row_to_dict(row))
+    makt = item.get('מק"ט')
+    if makt:
+        item["authorized_suppliers"] = get_suppliers_for_makt(str(makt), conn=conn)
+    else:
+        item["authorized_suppliers"] = []
+    if "החזר" in str(item.get("סוג סכום", "")):
+        item["special_note"] = REFUND_NOTE
+    return item
+
+
 def get_item_by_entity_id(entity_id: str) -> dict[str, Any] | None:
     with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM items WHERE entity_id = ?",
-            (entity_id,),
-        ).fetchone()
-        if not row:
+        row = _fetch_item_row(conn, entity_id)
+        if row is None:
+            new_id = legacy_entity_id_to_new(entity_id)
+            if new_id and new_id != entity_id:
+                row = _fetch_item_row(conn, new_id)
+        if row is None:
+            legacy = parse_legacy_entity_id(entity_id)
+            if legacy:
+                row = _fetch_item_by_legacy_parts(conn, legacy)
+        if row is None:
             return None
-        item = clean_record(_row_to_dict(row))
-        makt = item.get('מק"ט')
-        if makt:
-            item["authorized_suppliers"] = get_suppliers_for_makt(str(makt), conn=conn)
-        else:
-            item["authorized_suppliers"] = []
-        if "החזר" in str(item.get("סוג סכום", "")):
-            item["special_note"] = REFUND_NOTE
-        return item
+        return _enrich_item(conn, row)
 
 
 def _supplier_row_score(row: dict[str, Any]) -> int:
@@ -407,8 +445,9 @@ def get_items_for_makt(makt: str) -> list[dict[str, Any]]:
             rows = conn.execute(
                 f"""
                 SELECT {select_cols} FROM items
-                WHERE CAST([מק"ט] AS TEXT) = ?
-                   OR CAST([מק"ט] AS INTEGER) = CAST(? AS INTEGER)
+                WHERE {_active_where(
+                    'CAST([מק"ט] AS TEXT) = ? OR CAST([מק"ט] AS INTEGER) = CAST(? AS INTEGER)'
+                )}
                 ORDER BY entity_id
                 """,
                 (makt_str, makt_str),
@@ -417,7 +456,7 @@ def get_items_for_makt(makt: str) -> list[dict[str, Any]]:
             rows = conn.execute(
                 f"""
                 SELECT {select_cols} FROM items
-                WHERE CAST([מק"ט] AS TEXT) = ?
+                WHERE {_active_where('CAST([מק"ט] AS TEXT) = ?')}
                 ORDER BY entity_id
                 """,
                 (makt_str,),

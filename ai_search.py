@@ -8,6 +8,7 @@ from typing import Any
 
 from config import USE_FTS
 from db_service import (
+    ACTIVE_ITEMS_WHERE,
     ITEM_LIST_COLUMNS,
     _pick_columns,
     _select_items_sql,
@@ -173,7 +174,7 @@ def _fetch_by_rowids(conn, rowids: list[int]) -> list[dict[str, Any]]:
     select_cols = _select_items_sql()
     placeholders = ", ".join(["?"] * len(rowids))
     rows = conn.execute(
-        f"SELECT {select_cols} FROM items WHERE rowid IN ({placeholders})",
+        f"SELECT {select_cols} FROM items WHERE {ACTIVE_ITEMS_WHERE} AND rowid IN ({placeholders})",
         rowids,
     ).fetchall()
     return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]
@@ -191,7 +192,7 @@ def _search_via_like(conn, terms: list[str], phrase: str, limit: int) -> list[di
         params.append(f"%{t}%")
     if not clauses:
         return []
-    sql = f"SELECT {select_cols} FROM items WHERE ({' OR '.join(clauses)}) LIMIT ?"
+    sql = f"SELECT {select_cols} FROM items WHERE {ACTIVE_ITEMS_WHERE} AND ({' OR '.join(clauses)}) LIMIT ?"
     params.append(limit * 5)
     rows = conn.execute(sql, params).fetchall()
     return [_pick_columns(r, ITEM_LIST_COLUMNS) for r in rows]

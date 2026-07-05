@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KMS – ניהול סנכרון פריטים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css?v=0.9.0" />
+  <link rel="stylesheet" href="/static/css/admin.css?v=0.9.0" />
+</head>
+<body>
+  <div class="app admin-app">
+    <header class="header">
+      <div class="brand">
+        <span class="brand-icon">⚙</span>
+        <div>
+          <h1>ניהול KMS</h1>
+          <p class="subtitle">סנכרון פריטים מ-CSV · היסטוריית שינויים</p>
+        </div>
+      </div>
+      <a href="/" class="btn btn--ghost">← חזרה לחיפוש</a>
+    </header>
+
+    <section class="card">
+      <h2 class="section-title">הגדרות גישה</h2>
+      <div class="admin-row">
+        <div class="field field--grow">
+          <label for="adminToken">אסימון מנהל (X-Admin-Token)</label>
+          <input id="adminToken" type="password" placeholder="KMS_ADMIN_TOKEN" autocomplete="off" />
+        </div>
+        <button id="saveTokenBtn" class="btn btn--primary" type="button">שמור</button>
+      </div>
+      <p id="tokenStatus" class="hint">האסימון נשמר ב-sessionStorage בדפדפן זה בלבד.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">טעינת CSV</h2>
+      <div class="admin-row">
+        <div class="field field--grow">
+          <label for="csvFile">קובץ פריטים (CSV)</label>
+          <input id="csvFile" type="file" accept=".csv,text/csv" />
+        </div>
+        <button id="previewBtn" class="btn btn--primary" type="button" disabled>תצוגה מקדימה</button>
+        <button id="applyBtn" class="btn btn--danger" type="button" disabled>החל שינויים</button>
+      </div>
+      <p class="hint">המערכת מזהה לפי entity_id: חדש · עודכן · נמחק (soft delete — לא מוצג בחיפוש).</p>
+    </section>
+
+    <section id="summarySection" class="card" hidden>
+      <h2 class="section-title">סיכום</h2>
+      <div class="summary-grid">
+        <div class="summary-card summary-card--new"><span id="sumNew">0</span><small>חדשים</small></div>
+        <div class="summary-card summary-card--updated"><span id="sumUpdated">0</span><small>עודכנו</small></div>
+        <div class="summary-card summary-card--deleted"><span id="sumDeleted">0</span><small>נמחקו</small></div>
+        <div class="summary-card summary-card--unchanged"><span id="sumUnchanged">0</span><small>ללא שינוי</small></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="tabs">
+        <button class="tab tab--active" data-tab="new" type="button">חדשים</button>
+        <button class="tab" data-tab="updated" type="button">עודכנו</button>
+        <button class="tab" data-tab="deleted" type="button">נמחקו</button>
+        <button class="tab" data-tab="runs" type="button">היסטוריית סנכרון</button>
+        <button class="tab" data-tab="history" type="button">היסטוריית וריאנט</button>
+      </div>
+      <div id="tabNew" class="tab-panel"></div>
+      <div id="tabUpdated" class="tab-panel" hidden></div>
+      <div id="tabDeleted" class="tab-panel" hidden></div>
+      <div id="tabRuns" class="tab-panel" hidden></div>
+      <div id="tabHistory" class="tab-panel" hidden>
+        <div class="admin-row" style="margin-bottom:1rem">
+          <div class="field field--grow">
+            <label for="historyEntityId">entity_id</label>
+            <input id="historyEntityId" type="text" placeholder="642-נכים-הלוואה-7-1" />
+          </div>
+          <button id="loadHistoryBtn" class="btn btn--primary" type="button">טען היסטוריה</button>
+        </div>
+        <div id="historyResults"></div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+  </div>
+  <script src="/static/js/admin.js?v=0.9.0"></script>
+</body>
+</html>

@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 
-from config import CORS_ORIGINS, DB_PATH, USE_FTS, settings
+from config import CORS_ORIGINS, DB_PATH, USE_FTS, get_admin_token, settings
 from db_service import (
     MatchMode,
     get_db_dep,
@@ -27,6 +28,16 @@ from db_service import (
     search_items,
 )
 from ai_search import run_ai_search
+from db_schema import ensure_schema
+from entity_id import migrate_entity_ids, needs_entity_id_migration
+from items_sync import (
+    apply_sync_plan,
+    compute_sync_plan,
+    enrich_items_with_history_counts,
+    get_history_counts,
+    get_item_history,
+    list_sync_runs,
+)
 from excel_export import build_ai_search_export, build_makt_export, build_search_export
 from fts_service import fts_status
 from logging_setup import get_logger, setup_logging
@@ -35,11 +46,26 @@ from process_data import process_data
 setup_logging()
 logger = get_logger("kms.api")
 
-API_VERSION = "0.8.19"
+API_VERSION = "0.9.0"
 
 DbConn = Annotated[sqlite3.Connection, Depends(get_db_dep)]
 EXPORT_LIMIT = 500
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    if DB_PATH.exists():
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            ensure_schema(conn)
+            if needs_entity_id_migration(conn):
+                stats = migrate_entity_ids(conn)
+                logger.info("entity_id migration: %s", stats)
+        finally:
+            conn.close()
+    yield
+
 
 TAGS_METADATA = [
     {"name": "ui", "description": "ממשק GUI סטטי"},
@@ -61,6 +87,7 @@ app = FastAPI(
     version=API_VERSION,
     openapi_tags=TAGS_METADATA,
     contact={"name": "KMS Team"},
+    lifespan=_lifespan,
 )
 
 # CORS: ברירת מחדל "*" שומרת על תאימות לאחור (כפי שהתנהג עד היום ללא middleware).
@@ -138,6 +165,14 @@ def gui_home() -> FileResponse:
     if not index.exists():
         raise HTTPException(status_code=404, detail="ממשק GUI לא נמצא")
     return FileResponse(index)
+
+
+@app.get("/admin", tags=["ui"], include_in_schema=False)
+def gui_admin() -> FileResponse:
+    admin = STATIC_DIR / "admin.html"
+    if not admin.exists():
+        raise HTTPException(status_code=404, detail="ממשק ניהול לא נמצא")
+    return FileResponse(admin)
 
 
 @app.get(
@@ -263,6 +298,7 @@ def api_list_items(
     items = search_items(q, mode, field, limit)
     if not items:
         raise HTTPException(status_code=404, detail="לא נמצאו תוצאות")
+    enrich_items_with_history_counts(items)
     payload: dict[str, Any] = {
         "query": q,
         "match": mode.value,
@@ -283,12 +319,35 @@ def api_list_items(
     summary="פרטי וריאנט מלאים לפי entity_id",
     responses={404: {"description": "פריט לא נמצא"}},
 )
-def api_get_item(entity_id: str) -> dict[str, Any]:
+def api_get_item(
+    entity_id: str,
+    history_limit: int = Query(default=20, ge=0, le=100),
+) -> dict[str, Any]:
     _ensure_db()
     item = get_item_by_entity_id(entity_id)
     if not item:
         raise HTTPException(status_code=404, detail="פריט לא נמצא")
+    history = get_item_history(entity_id, history_limit) if history_limit else []
+    item["change_history"] = history
+    item["history_count"] = get_history_counts([entity_id]).get(entity_id, 0)
     return item
+
+
+@app.get(
+    "/api/item/{entity_id}/history",
+    tags=["items"],
+    summary="היסטוריית שינויים לוריאנט",
+    responses={404: {"description": "פריט לא נמצא"}},
+)
+def api_get_item_history(
+    entity_id: str,
+    limit: int = Query(default=50, ge=1, le=500),
+) -> dict[str, Any]:
+    _ensure_db()
+    if not get_item_by_entity_id(entity_id):
+        raise HTTPException(status_code=404, detail="פריט לא נמצא")
+    history = get_item_history(entity_id, limit)
+    return {"entity_id": entity_id, "count": len(history), "history": history}
 
 
 @app.get(
@@ -411,9 +470,10 @@ def api_export_ai_search(
 def _verify_admin_token(
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
 ) -> None:
-    if not settings.admin_token:
+    expected = get_admin_token()
+    if not expected:
         raise HTTPException(status_code=403, detail="endpoint ניהול מושבת (הגדר KMS_ADMIN_TOKEN)")
-    if not x_admin_token or x_admin_token != settings.admin_token:
+    if not x_admin_token or x_admin_token != expected:
         raise HTTPException(status_code=401, detail="אסימון ניהול לא תקין")
 
 
@@ -446,6 +506,75 @@ def api_admin_reload_data(_: None = Depends(_verify_admin_token)) -> dict[str, A
     except Exception as exc:
         logger.exception("admin reload-data failed: %s", exc)
         raise HTTPException(status_code=500, detail="שגיאה בטעינת הנתונים") from exc
+
+
+@app.post(
+    "/api/admin/items/sync/preview",
+    tags=["admin"],
+    summary="תצוגה מקדימה לסנכרון CSV",
+    description="מזהה פריטים חדשים, מעודכנים ונמחקים ללא שינוי ב-DB.",
+)
+async def api_admin_sync_preview(
+    file: UploadFile = File(...),
+    _: None = Depends(_verify_admin_token),
+) -> dict[str, Any]:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="קובץ ריק")
+    try:
+        plan = compute_sync_plan(content, file.filename or "upload.csv")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return plan.to_dict()
+
+
+@app.post(
+    "/api/admin/items/sync/apply",
+    tags=["admin"],
+    summary="החלת סנכרון CSV",
+    description="מיישם שינויים: הוספה, עדכון ו-soft delete (is_deleted).",
+)
+async def api_admin_sync_apply(
+    file: UploadFile = File(...),
+    _: None = Depends(_verify_admin_token),
+) -> dict[str, Any]:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="קובץ ריק")
+    try:
+        result = apply_sync_plan(content, file.filename or "upload.csv")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("admin sync apply failed: %s", exc)
+        raise HTTPException(status_code=500, detail="שגיאה בהחלת הסנכרון") from exc
+    logger.info("admin sync apply: %s", result.get("summary"))
+    return result
+
+
+@app.get(
+    "/api/admin/sync-runs",
+    tags=["admin"],
+    summary="היסטוריית הרצות סנכרון",
+)
+def api_admin_sync_runs(
+    limit: int = Query(default=50, ge=1, le=200),
+    _: None = Depends(_verify_admin_token),
+) -> dict[str, Any]:
+    return {"runs": list_sync_runs(limit)}
+
+
+@app.get(
+    "/api/admin/items/{entity_id}/history",
+    tags=["admin"],
+    summary="היסטוריית שינויים לוריאנט",
+)
+def api_admin_item_history(
+    entity_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    _: None = Depends(_verify_admin_token),
+) -> dict[str, Any]:
+    return {"entity_id": entity_id, "history": get_item_history(entity_id, limit)}
 
 
 # תאימות לאחור

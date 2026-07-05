@@ -1,0 +1,132 @@
+.admin-app .section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.summary-card span {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.summary-card--new span { color: #059669; }
+.summary-card--updated span { color: #d97706; }
+.summary-card--deleted span { color: var(--danger); }
+.summary-card--unchanged span { color: var(--text-muted); }
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.tab--active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.tab-panel {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  vertical-align: top;
+}
+
+.admin-table th {
+  background: var(--bg);
+  font-weight: 600;
+}
+
+.changes-list {
+  margin: 0;
+  padding-right: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.changes-list li {
+  margin-bottom: 0.25rem;
+}
+
+.badge-restored {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.35rem;
+}
+
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  z-index: 1000;
+  max-width: 90vw;
+}
+
+.empty-msg {
+  color: var(--text-muted);
+  padding: 1rem 0;
+}

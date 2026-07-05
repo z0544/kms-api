@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from db_schema import ensure_schema
+from entity_id import build_entity_id_series
 from excel_loader import read_kms_excel
 from config import (
     AGREEMENTS_FILE,
@@ -44,19 +46,7 @@ def _normalize_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
 
 def _build_entity_id(df: pd.DataFrame) -> pd.DataFrame:
     df = _normalize_columns(df, UNIQUE_ID_COLUMNS)
-    df["entity_id"] = (
-        df['מק"ט']
-        + "_"
-        + df["רמת בסיס"]
-        + "_"
-        + df["רמת חריגה"]
-        + "_"
-        + df["אחוז לחריגה"]
-        + "_"
-        + df["סוג זכאי"]
-        + "_"
-        + df["סוג סכום"]
-    )
+    df["entity_id"] = build_entity_id_series(df)
     return df
 
 
@@ -92,6 +82,12 @@ def _apply_geo_mapping(df_suppliers: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def prepare_items_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """מכין DataFrame פריטים: נרמול, entity_id ו-dedup."""
+    df = _build_entity_id(df.copy())
+    return _deduplicate_items(df)
+
+
 def process_data() -> dict[str, int]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -103,12 +99,15 @@ def process_data() -> dict[str, int]:
     df_suppliers = read_kms_excel(suppliers_path, "suppliers")
     df_agreements = read_kms_excel(agreements_path, "agreements")
 
-    df_items = _build_entity_id(df_items)
-    df_items = _deduplicate_items(df_items)
+    df_items = prepare_items_dataframe(df_items)
     df_suppliers = _apply_geo_mapping(df_suppliers)
 
     conn = sqlite3.connect(DB_PATH)
     try:
+        ensure_schema(conn)
+        df_items["is_deleted"] = 0
+        df_items["created_at"] = pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        df_items["updated_at"] = df_items["created_at"]
         df_items.to_sql("items", conn, if_exists="replace", index=False)
         df_suppliers.to_sql("suppliers", conn, if_exists="replace", index=False)
         df_agreements.to_sql("agreements", conn, if_exists="replace", index=False)

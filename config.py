@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="KMS_",
-        env_file=".env",
+        env_file=str(_BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -67,6 +67,25 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
+def get_admin_token() -> str | None:
+    """מחזיר אסימון מנהל — מ-settings או ישירות מ-.env (fallback)."""
+    if settings.admin_token:
+        return settings.admin_token
+    env_path = _BASE_DIR / ".env"
+    if not env_path.is_file():
+        return None
+    for line in env_path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        if key.strip().upper() == "KMS_ADMIN_TOKEN":
+            token = val.strip().strip('"').strip("'")
+            return token or None
+    return None
+
+
 # === תאימות לאחור: שמות המשתנים הישנים נשארים זמינים ===
 BASE_DIR: Path = settings.base_dir
 DATA_DIR: Path = settings.data_dir
@@ -80,13 +99,15 @@ AGREEMENTS_FILE: str = settings.agreements_file
 CORS_ORIGINS: list[str] = settings.cors_origins_list
 USE_FTS: bool = settings.use_fts
 
-UNIQUE_ID_COLUMNS = [
+ENTITY_ID_PARTS = [
     'מק"ט',
-    "רמת בסיס",
-    "רמת חריגה",
-    "אחוז לחריגה",
     "סוג זכאי",
     "סוג סכום",
+    "רמת בסיס",
+    "רמת חריגה",
 ]
+
+# עמודות לנורמליזציה ב-ETL (אחוז לחריגה לא חלק מה-entity_id)
+UNIQUE_ID_COLUMNS = ENTITY_ID_PARTS + ["אחוז לחריגה"]
 
 REFUND_NOTE = "יש לבדוק את תאריך ביצוע השירות בהתאם להנחיות ההחזר."

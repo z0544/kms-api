@@ -634,6 +634,59 @@ body {
   text-align: right;
 }
 
+.history-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.history-col {
+  width: 4.5rem;
+  text-align: center;
+}
+
+.item-history {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  grid-column: 1 / -1;
+}
+
+.item-history-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.65rem;
+}
+
+.item-history-table {
+  font-size: 0.82rem;
+}
+
+.item-history-table th,
+.item-history-table td {
+  padding: 0.4rem 0.5rem;
+}
+
+.history-file {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-empty {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+
 .toast {
   position: fixed;
   bottom: 1.5rem;

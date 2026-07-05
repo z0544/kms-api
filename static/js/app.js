@@ -411,6 +411,58 @@ function supplierPhoneCell(s) {
   return "—";
 }
 
+const HISTORY_ACTION_LABELS = {
+  created: "נוצר",
+  updated: "עודכן",
+  deleted: "נמחק",
+  restored: "שוחזר",
+};
+
+function historyBadgeHtml(count) {
+  const n = Number(count) || 0;
+  if (n <= 0) return "";
+  const label = n === 1 ? "שינוי אחד" : `${n} שינויים`;
+  return `<span class="history-badge" title="${esc(label)}">${n}</span>`;
+}
+
+function renderItemHistory(history) {
+  if (!history?.length) {
+    return '<p class="history-empty hint-inline">אין היסטוריית שינויים לוריאנט זה</p>';
+  }
+  const rows = history
+    .map(
+      (h) => `
+    <tr>
+      <td>${esc(h.changed_at || "—")}</td>
+      <td>${esc(HISTORY_ACTION_LABELS[h.action] || h.action || "—")}</td>
+      <td>${esc(h.field_name || "—")}</td>
+      <td>${esc(h.old_value ?? "—")}</td>
+      <td>${esc(h.new_value ?? "—")}</td>
+      <td class="history-file">${esc(h.sync_filename || "—")}</td>
+    </tr>`
+    )
+    .join("");
+  return `
+    <section class="item-history">
+      <h3 class="item-history-title">היסטוריית שינויים</h3>
+      <div class="table-wrap">
+        <table class="data-table item-history-table">
+          <thead>
+            <tr>
+              <th>תאריך</th>
+              <th>פעולה</th>
+              <th>שדה</th>
+              <th>ישן</th>
+              <th>חדש</th>
+              <th>קובץ</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
 function formatDetailValue(key, value) {
   if (/טלפון|נייד|נייח/i.test(key)) return phoneLinkHtml(value);
   return esc(value);
@@ -517,6 +569,7 @@ function renderVariantsTable(variants, groupIdx, makt, supplierCount) {
       <td data-label="סוג זכאי">${cellVal(v, "סוג זכאי")}</td>
       <td data-label="סוג סכום">${cellVal(v, "סוג סכום")}</td>
       <td class="num-cell" data-label="סכום"><strong>${cellVal(v, "סכום")}</strong></td>
+      <td class="history-col" data-label="היסטוריה">${historyBadgeHtml(v.history_count)}</td>
     </tr>`
     )
     .join("");
@@ -534,6 +587,7 @@ function renderVariantsTable(variants, groupIdx, makt, supplierCount) {
             <th>סוג זכאי</th>
             <th>סוג סכום</th>
             <th>סכום</th>
+            <th class="history-col" title="מספר שינויים מתועדים">היסטוריה</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -1026,7 +1080,7 @@ function renderDetail(item) {
     detailContent.textContent = "אין פרטים להצגה";
     return;
   }
-  const skip = new Set(["authorized_suppliers"]);
+  const skip = new Set(["authorized_suppliers", "change_history", "history_count"]);
   const rows = Object.entries(item)
     .filter(([k]) => !skip.has(k))
     .map(
@@ -1042,12 +1096,15 @@ function renderDetail(item) {
     ? `<div class="detail-note">${esc(item.special_note)}</div>`
     : "";
 
+  const historyHtml = renderItemHistory(item.change_history || []);
+
   detailContent.className = "detail-grid";
   const entityLabel = item.entity_id || item.entityId;
   detailContent.innerHTML = `
     ${entityLabel ? `<p class="entity-id-small">${esc(entityLabel)}</p>` : ""}
     ${rows}
     ${note}
+    ${historyHtml}
   `;
 }
 
